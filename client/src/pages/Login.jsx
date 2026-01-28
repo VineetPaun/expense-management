@@ -20,6 +20,7 @@ export default function Login() {
       console.log(userName, password);
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("username", res.data.username);
+      localStorage.setItem("userId", res.data.userId);
       navigate("/");
     } catch (err) {
       if (err.response) {

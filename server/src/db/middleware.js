@@ -1,4 +1,4 @@
-import { usersModel } from "../db/schema.js";
+import { User } from "../db/schema.js";
 import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
@@ -19,7 +19,7 @@ const checkUser = (mode) => async (req, res, next) => {
   try {
     const { username } = req.body;
 
-    const user = await usersModel.findOne({ username });
+    const user = await User.findOne({ username });
 
     // SIGNUP → user should NOT exist
     if (mode === "signup" && user) {
