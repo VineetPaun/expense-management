@@ -70,7 +70,7 @@ export default function Signup() {
         password,
       });
       console.log(userName, password);
-      navigate("/");
+      navigate("/login");
     } catch (err) {
       if (err.response && err.response.status === 409) {
         setError("User already exists. Please try a different name.");

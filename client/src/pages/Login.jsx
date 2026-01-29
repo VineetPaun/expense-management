@@ -3,7 +3,6 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import axios from "axios";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 
 // Zod validation schema for login
@@ -23,7 +22,6 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
-  const navigate = useNavigate();
 
   const handleReset = () => {
     setUserName("");
@@ -64,7 +62,7 @@ export default function Login() {
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("username", res.data.username);
       localStorage.setItem("userId", res.data.userId);
-      navigate("/");
+      window.location.href = "/";
     } catch (err) {
       if (err.response) {
         if (err.response.status === 404) {
