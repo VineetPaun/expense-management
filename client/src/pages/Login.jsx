@@ -4,14 +4,57 @@ import { Input } from "@/components/ui/input";
 import axios from "axios";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { z } from "zod";
+
+// Zod validation schema for login
+const loginSchema = z.object({
+  username: z
+    .string()
+    .min(1, "Name is required")
+    .min(3, "Name must be at least 3 characters"),
+  password: z
+    .string()
+    .min(1, "Password is required")
+    .min(6, "Password must be at least 6 characters"),
+});
 
 export default function Login() {
   const [userName, setUserName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const navigate = useNavigate();
+
+  const handleReset = () => {
+    setUserName("");
+    setPassword("");
+    setError("");
+    setFieldErrors({});
+  };
+
   const handeSubmit = async () => {
     setError(""); // Clear previous errors
+    setFieldErrors({});
+
+    // Validate with Zod
+    const result = loginSchema.safeParse({
+      username: userName,
+      password: password,
+    });
+
+    if (!result.success) {
+      // Extract field-specific errors
+      const errors = {};
+      result.error.errors.forEach((err) => {
+        const field = err.path[0];
+        if (!errors[field]) {
+          errors[field] = err.message;
+        }
+      });
+      setFieldErrors(errors);
+      return;
+    }
+
     try {
       const res = await axios.post("http://localhost:3000/signin", {
         username: userName,
@@ -37,6 +80,7 @@ export default function Login() {
       console.error(err);
     }
   };
+
   return (
     <div className="flex items-center justify-center min-h-[50vh]">
       <div className="w-full max-w-md space-y-6">
@@ -49,8 +93,22 @@ export default function Login() {
               id="fieldgroup-name"
               placeholder="Vineet Paun"
               value={userName}
-              onChange={(e) => setUserName(e.target.value)}
+              onChange={(e) => {
+                setUserName(e.target.value);
+                if (fieldErrors.username) {
+                  setFieldErrors((prev) => ({ ...prev, username: undefined }));
+                }
+              }}
+              className={fieldErrors.username ? "border-red-500 border-2" : ""}
             />
+            {fieldErrors.username && (
+              <p
+                className="text-sm font-medium mt-1 text-destructive"
+                style={{ color: "rgb(239, 68, 68)" }}
+              >
+                ⚠️ {fieldErrors.username}
+              </p>
+            )}
           </Field>
 
           <Field>
@@ -61,18 +119,35 @@ export default function Login() {
               autoComplete="new-password"
               value={password}
               placeholder=""
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (fieldErrors.password) {
+                  setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                }
+              }}
+              className={fieldErrors.password ? "border-red-500 border-2" : ""}
             />
+            {fieldErrors.password && (
+              <p
+                className="text-sm font-medium mt-1 text-destructive"
+                style={{ color: "rgb(239, 68, 68)" }}
+              >
+                ⚠️ {fieldErrors.password}
+              </p>
+            )}
           </Field>
 
           {error && (
-            <p className="text-sm font-medium text-destructive text-center">
-              {error}
+            <p
+              className="text-sm font-medium text-center text-destructive"
+              style={{ color: "rgb(239, 68, 68)" }}
+            >
+              ⚠️ {error}
             </p>
           )}
 
           <Field orientation="horizontal" className="flex gap-3 justify-end">
-            <Button type="reset" variant="outline">
+            <Button type="reset" variant="outline" onClick={handleReset}>
               Reset
             </Button>
             <Button onClick={handeSubmit}>Submit</Button>
