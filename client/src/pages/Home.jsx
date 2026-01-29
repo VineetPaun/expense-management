@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
+import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   ChevronDown,
@@ -51,9 +52,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function Home() {
+  const navigate = useNavigate();
   const name = localStorage.getItem("username");
   const token = localStorage.getItem("token");
-  const userId = localStorage.getItem("userId");
   const [bankName, setBankName] = useState("HDFC");
   const [accountType, setAccountType] = useState("Savings");
   const [isOpen, setIsOpen] = useState(false);
@@ -149,7 +150,14 @@ export default function Home() {
             </Button>
           );
         },
-        cell: ({ row }) => <div>{row.getValue("bankName")}</div>,
+        cell: ({ row }) => (
+          <div
+            className="font-medium text-blue-600 hover:underline cursor-pointer"
+            onClick={() => navigate(`/account/${row.original._id}`)}
+          >
+            {row.getValue("bankName")}
+          </div>
+        ),
       },
       {
         accessorKey: "accountType",
@@ -209,6 +217,11 @@ export default function Home() {
                     Copy account ID
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => navigate(`/account/${account._id}`)}
+                  >
+                    View details
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => openEditModal(account)}>
                     Edit
                   </DropdownMenuItem>
@@ -413,6 +426,10 @@ export default function Home() {
                     <TableRow
                       key={row.id}
                       data-state={row.getIsSelected() && "selected"}
+                      onDoubleClick={() =>
+                        navigate(`/account/${row.original._id}`)
+                      }
+                      className="cursor-default"
                     >
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id}>
