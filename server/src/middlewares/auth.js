@@ -5,7 +5,7 @@
  * Uses ApiError for consistent error handling.
  */
 
-import { User } from "../models/index.js";
+import { User } from "../models/User.js";
 import jwt from "jsonwebtoken";
 import { ApiError } from "./errorHandler.js";
 
@@ -56,7 +56,7 @@ const validateAuthInput = (req, res, next) => {
   if (errors.length > 0) {
     return res.status(400).json({
       success: false,
-      status_code: 400,
+      statusCode: 400,
       message: "Validation failed",
       errors,
     });
@@ -88,7 +88,7 @@ const checkUser = (mode) => async (req, res, next) => {
     if (mode === "signup" && user) {
       return res.status(409).json({
         success: false,
-        status_code: 409,
+        statusCode: 409,
         message: "User already exists",
         errors: [
           { field: "username", message: "This username is already taken" },
@@ -100,7 +100,7 @@ const checkUser = (mode) => async (req, res, next) => {
     if (mode === "signin" && !user) {
       return res.status(404).json({
         success: false,
-        status_code: 404,
+        statusCode: 404,
         message: "User not found",
         errors: [
           { field: "username", message: "No account found with this username" },
@@ -138,9 +138,9 @@ const verifyToken = (req, res, next) => {
   if (!authHeader) {
     return res.status(401).json({
       success: false,
-      status_code: 401,
+      statusCode: 401,
       message: "Access denied. No authorization header provided.",
-      error_code: "NO_AUTH_HEADER",
+      errorCode: "NO_AUTH_HEADER",
     });
   }
 
@@ -148,9 +148,9 @@ const verifyToken = (req, res, next) => {
   if (!authHeader.startsWith("Bearer ")) {
     return res.status(401).json({
       success: false,
-      status_code: 401,
+      statusCode: 401,
       message: "Invalid authorization format. Use: Bearer <token>",
-      error_code: "INVALID_AUTH_FORMAT",
+      errorCode: "INVALID_AUTH_FORMAT",
     });
   }
 
@@ -161,9 +161,9 @@ const verifyToken = (req, res, next) => {
   if (!token) {
     return res.status(401).json({
       success: false,
-      status_code: 401,
+      statusCode: 401,
       message: "Access denied. No token provided.",
-      error_code: "NO_TOKEN",
+      errorCode: "NO_TOKEN",
     });
   }
 
@@ -175,9 +175,9 @@ const verifyToken = (req, res, next) => {
     if (!decoded.user_id || !decoded.user_name) {
       return res.status(401).json({
         success: false,
-        status_code: 401,
+        statusCode: 401,
         message: "Invalid token payload.",
-        error_code: "INVALID_TOKEN_PAYLOAD",
+        errorCode: "INVALID_TOKEN_PAYLOAD",
       });
     }
 
@@ -193,37 +193,37 @@ const verifyToken = (req, res, next) => {
     if (err.name === "TokenExpiredError") {
       return res.status(401).json({
         success: false,
-        status_code: 401,
+        statusCode: 401,
         message: "Token has expired. Please sign in again.",
-        error_code: "TOKEN_EXPIRED",
-        expired_at: err.expiredAt,
+        errorCode: "TOKEN_EXPIRED",
+        expiredAt: err.expiredAt,
       });
     }
 
     if (err.name === "JsonWebTokenError") {
       return res.status(401).json({
         success: false,
-        status_code: 401,
+        statusCode: 401,
         message: "Invalid token.",
-        error_code: "INVALID_TOKEN",
+        errorCode: "INVALID_TOKEN",
       });
     }
 
     if (err.name === "NotBeforeError") {
       return res.status(401).json({
         success: false,
-        status_code: 401,
+        statusCode: 401,
         message: "Token not yet active.",
-        error_code: "TOKEN_NOT_ACTIVE",
+        errorCode: "TOKEN_NOT_ACTIVE",
       });
     }
 
     // Generic error
     return res.status(401).json({
       success: false,
-      status_code: 401,
+      statusCode: 401,
       message: "Token verification failed.",
-      error_code: "TOKEN_VERIFICATION_FAILED",
+      errorCode: "TOKEN_VERIFICATION_FAILED",
     });
   }
 };
@@ -240,9 +240,9 @@ const requireRole = (allowedRoles) => (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({
       success: false,
-      status_code: 401,
+      statusCode: 401,
       message: "Authentication required.",
-      error_code: "AUTH_REQUIRED",
+      errorCode: "AUTH_REQUIRED",
     });
   }
 
@@ -251,9 +251,9 @@ const requireRole = (allowedRoles) => (req, res, next) => {
   if (!allowedRoles.includes(userRole)) {
     return res.status(403).json({
       success: false,
-      status_code: 403,
+      statusCode: 403,
       message: "Insufficient permissions to access this resource.",
-      error_code: "FORBIDDEN",
+      errorCode: "FORBIDDEN",
     });
   }
 

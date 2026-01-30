@@ -3,15 +3,13 @@
  * @description Main entry point for the Expense Management API.
  * Sets up Express server with comprehensive middleware stack,
  * database connection, and route handlers.
- *
- * Naming Convention:
- * - JavaScript variables: camelCase
- * - Database fields: snake_case
+ * Uses Winston for structured logging.
  *
  * @requires express - Web framework for Node.js
  * @requires cors - Cross-Origin Resource Sharing middleware
  * @requires mongoose - MongoDB ODM
  * @requires dotenv - Environment variable loader
+ * @requires winston - Logging framework
  */
 
 import express from "express";
@@ -27,14 +25,14 @@ import userRouter from "./routes/user.js";
 import accountRouter from "./routes/account.js";
 import transactionRouter from "./routes/transaction.js";
 
-// Import middleware
+// Import middleware from specific files
 import {
   notFoundHandler,
   globalErrorHandler,
-  generalLimiter,
-  sanitizeInput,
-  requestLogger,
-} from "./middlewares/index.js";
+} from "./middlewares/errorHandler.js";
+import { generalLimiter } from "./middlewares/rateLimiter.js";
+import { sanitizeInput } from "./middlewares/validator.js";
+import { requestLogger, logger } from "./middlewares/logger.js";
 
 // Initialize Express application
 const app = express();
@@ -53,7 +51,7 @@ app.set("trust proxy", 1);
 // Middleware Configuration (Order Matters!)
 // ============================================
 
-// 1. Request Logging (first to capture all requests)
+// 1. Request Logging with Winston (first to capture all requests)
 app.use(
   requestLogger({
     logBody: process.env.NODE_ENV !== "production",
@@ -140,6 +138,7 @@ if (process.env.NODE_ENV !== "production") {
   app.delete("/drop", async (req, res, next) => {
     try {
       await mongoose.connection.dropDatabase();
+      logger.warn("Database dropped via API request");
       res.json({
         success: true,
         message: "Database dropped successfully",
@@ -165,16 +164,16 @@ app.use(globalErrorHandler);
 // ============================================
 
 const gracefulShutdown = async (signal) => {
-  console.log(`\nReceived ${signal}. Starting graceful shutdown...`);
+  logger.info(`Received ${signal}. Starting graceful shutdown...`);
 
   try {
     // Close MongoDB connection
     await mongoose.connection.close();
-    console.log("MongoDB connection closed.");
+    logger.info("MongoDB connection closed.");
 
     process.exit(0);
   } catch (error) {
-    console.error("Error during shutdown:", error);
+    logger.error("Error during shutdown", { error: error.message });
     process.exit(1);
   }
 };
@@ -183,14 +182,17 @@ const gracefulShutdown = async (signal) => {
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
-// Handle unhandled promise rejections
+// Handle unhandled promise rejections (Winston handles this, but log explicitly)
 process.on("unhandledRejection", (reason, promise) => {
-  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+  logger.error("Unhandled Rejection", { reason, promise });
 });
 
-// Handle uncaught exceptions
+// Handle uncaught exceptions (Winston handles this, but log explicitly)
 process.on("uncaughtException", (error) => {
-  console.error("Uncaught Exception:", error);
+  logger.error("Uncaught Exception", {
+    error: error.message,
+    stack: error.stack,
+  });
   process.exit(1);
 });
 
@@ -201,6 +203,12 @@ process.on("uncaughtException", (error) => {
 const port = process.env.PORT || 3000;
 
 const server = app.listen(port, () => {
+  logger.info("Server started", {
+    port,
+    environment: process.env.NODE_ENV || "development",
+    nodeVersion: process.version,
+  });
+
   console.log(`
 ╔════════════════════════════════════════════╗
 ║    Expense Management API Server           ║
@@ -215,9 +223,9 @@ const server = app.listen(port, () => {
 // Handle server errors
 server.on("error", (error) => {
   if (error.code === "EADDRINUSE") {
-    console.error(`Port ${port} is already in use`);
+    logger.error(`Port ${port} is already in use`);
   } else {
-    console.error("Server error:", error);
+    logger.error("Server error", { error: error.message });
   }
   process.exit(1);
 });

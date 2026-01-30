@@ -1,157 +1,101 @@
 /**
- * @fileoverview Request Logging Middleware
- * @description Provides request logging for debugging and monitoring.
- * Logs request details, response time, and status codes.
- *
- * Naming Convention:
- * - JavaScript variables: camelCase
+ * @fileoverview Winston Logger Configuration
+ * @description Professional logging setup using Winston.
+ * Provides structured logging with multiple transports (console, file).
+ * Includes request logging middleware for Express.
  */
+
+import winston from "winston";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
- * Log Levels
- * @constant {Object}
+ * Log Directory
  */
-const LOG_LEVELS = {
-  ERROR: "ERROR",
-  WARN: "WARN",
-  INFO: "INFO",
-  DEBUG: "DEBUG",
-};
+const LOG_DIR = path.join(__dirname, "../../logs");
 
 /**
- * Color Codes for Console
- * @constant {Object}
+ * Custom Log Format
+ * @description Combines timestamp, level, message, and metadata
  */
-const COLORS = {
-  reset: "\x1b[0m",
-  red: "\x1b[31m",
-  green: "\x1b[32m",
-  yellow: "\x1b[33m",
-  blue: "\x1b[34m",
-  magenta: "\x1b[35m",
-  cyan: "\x1b[36m",
-  gray: "\x1b[90m",
-};
+const customFormat = winston.format.combine(
+  winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+  winston.format.errors({ stack: true }),
+  winston.format.printf(({ timestamp, level, message, requestId, ...meta }) => {
+    const metaStr = Object.keys(meta).length ? JSON.stringify(meta) : "";
+    const reqIdStr = requestId ? `[${requestId}]` : "";
+    return `${timestamp} ${reqIdStr} [${level.toUpperCase()}]: ${message} ${metaStr}`.trim();
+  }),
+);
 
 /**
- * Get Color by Status Code
- * @param {number} statusCode - HTTP status code
- * @returns {string} Color code
+ * Console Format with Colors
  */
-const getStatusColor = (statusCode) => {
-  if (statusCode >= 500) return COLORS.red;
-  if (statusCode >= 400) return COLORS.yellow;
-  if (statusCode >= 300) return COLORS.cyan;
-  if (statusCode >= 200) return COLORS.green;
-  return COLORS.gray;
-};
+const consoleFormat = winston.format.combine(
+  winston.format.colorize({ all: true }),
+  winston.format.timestamp({ format: "HH:mm:ss" }),
+  winston.format.printf(({ timestamp, level, message, requestId, ...meta }) => {
+    const metaStr = Object.keys(meta).length ? JSON.stringify(meta) : "";
+    const reqIdStr = requestId ? `[${requestId}]` : "";
+    return `${timestamp} ${reqIdStr} ${level}: ${message} ${metaStr}`.trim();
+  }),
+);
 
 /**
- * Get Color by Method
- * @param {string} method - HTTP method
- * @returns {string} Color code
+ * Winston Logger Instance
  */
-const getMethodColor = (method) => {
-  const colors = {
-    GET: COLORS.green,
-    POST: COLORS.blue,
-    PUT: COLORS.yellow,
-    PATCH: COLORS.yellow,
-    DELETE: COLORS.red,
-  };
-  return colors[method] || COLORS.gray;
-};
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || "info",
+  format: customFormat,
+  defaultMeta: { service: "expense-api" },
+  transports: [
+    // Console transport (always enabled)
+    new winston.transports.Console({
+      format: consoleFormat,
+    }),
+  ],
+  // Handle uncaught exceptions
+  exceptionHandlers: [
+    new winston.transports.Console({
+      format: consoleFormat,
+    }),
+  ],
+  // Handle unhandled promise rejections
+  rejectionHandlers: [
+    new winston.transports.Console({
+      format: consoleFormat,
+    }),
+  ],
+});
 
-/**
- * Format Duration
- * @param {number} ms - Duration in milliseconds
- * @returns {string} Formatted duration
- */
-const formatDuration = (ms) => {
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(2)}s`;
-};
+// Add file transports in production
+if (process.env.NODE_ENV === "production") {
+  // Error logs
+  logger.add(
+    new winston.transports.File({
+      filename: path.join(LOG_DIR, "error.log"),
+      level: "error",
+      maxsize: 5242880, // 5MB
+      maxFiles: 5,
+    }),
+  );
 
-/**
- * Request Logger Middleware
- * @description Logs incoming requests and outgoing responses.
- * Includes method, URL, status code, and response time.
- *
- * @param {Object} options - Logger options
- * @param {boolean} options.logBody - Whether to log request body
- * @param {boolean} options.logQuery - Whether to log query parameters
- * @param {Array} options.skipPaths - Paths to skip logging
- *
- * @returns {Function} Express middleware function
- */
-const requestLogger = (options = {}) => {
-  const {
-    logBody = false,
-    logQuery = false,
-    skipPaths = ["/health", "/favicon.ico"],
-  } = options;
-
-  return (req, res, next) => {
-    // Skip logging for certain paths
-    if (skipPaths.some((path) => req.path.startsWith(path))) {
-      return next();
-    }
-
-    const startTime = Date.now();
-    const requestId = generateRequestId();
-
-    // Attach request ID to request object
-    req.requestId = requestId;
-
-    // Log incoming request
-    const timestamp = new Date().toISOString();
-    const methodColor = getMethodColor(req.method);
-
-    console.log(
-      `${COLORS.gray}[${timestamp}]${COLORS.reset} ` +
-        `${COLORS.cyan}[${requestId}]${COLORS.reset} ` +
-        `${methodColor}${req.method}${COLORS.reset} ` +
-        `${req.originalUrl}`,
-    );
-
-    // Optionally log body and query
-    if (logBody && req.body && Object.keys(req.body).length > 0) {
-      // Mask sensitive fields
-      const maskedBody = maskSensitiveData(req.body);
-      console.log(
-        `${COLORS.gray}  Body: ${JSON.stringify(maskedBody)}${COLORS.reset}`,
-      );
-    }
-
-    if (logQuery && req.query && Object.keys(req.query).length > 0) {
-      console.log(
-        `${COLORS.gray}  Query: ${JSON.stringify(req.query)}${COLORS.reset}`,
-      );
-    }
-
-    // Capture response finish
-    res.on("finish", () => {
-      const duration = Date.now() - startTime;
-      const statusColor = getStatusColor(res.statusCode);
-
-      console.log(
-        `${COLORS.gray}[${timestamp}]${COLORS.reset} ` +
-          `${COLORS.cyan}[${requestId}]${COLORS.reset} ` +
-          `${methodColor}${req.method}${COLORS.reset} ` +
-          `${req.originalUrl} ` +
-          `${statusColor}${res.statusCode}${COLORS.reset} ` +
-          `${COLORS.gray}${formatDuration(duration)}${COLORS.reset}`,
-      );
-    });
-
-    next();
-  };
-};
+  // Combined logs
+  logger.add(
+    new winston.transports.File({
+      filename: path.join(LOG_DIR, "combined.log"),
+      maxsize: 5242880, // 5MB
+      maxFiles: 5,
+    }),
+  );
+}
 
 /**
  * Generate Request ID
- * @description Generates a unique request ID for tracing.
- * @returns {string} Request ID
+ * @returns {string} Unique request identifier
  */
 const generateRequestId = () => {
   return `req_${Date.now().toString(36)}_${Math.random().toString(36).substr(2, 9)}`;
@@ -159,18 +103,19 @@ const generateRequestId = () => {
 
 /**
  * Mask Sensitive Data
- * @description Masks sensitive fields in objects for logging.
  * @param {Object} obj - Object to mask
  * @returns {Object} Masked object
  */
 const maskSensitiveData = (obj) => {
+  if (!obj || typeof obj !== "object") return obj;
+
   const sensitiveFields = [
     "password",
     "passwordHash",
     "token",
+    "authorization",
     "secret",
     "apiKey",
-    "creditCard",
   ];
   const masked = { ...obj };
 
@@ -184,24 +129,162 @@ const maskSensitiveData = (obj) => {
 };
 
 /**
- * Error Logger
- * @description Logs errors with stack trace and context.
- *
- * @param {Error} error - Error object
- * @param {Object} req - Request object
+ * Get Status Color
+ * @param {number} statusCode - HTTP status code
+ * @returns {string} Color name
  */
-const logError = (error, req = null) => {
-  const timestamp = new Date().toISOString();
-
-  console.error(
-    `${COLORS.red}[${timestamp}] [ERROR]${COLORS.reset}`,
-    req ? `[${req.requestId}]` : "",
-    error.message,
-  );
-
-  if (process.env.NODE_ENV !== "production") {
-    console.error(`${COLORS.gray}${error.stack}${COLORS.reset}`);
-  }
+const getStatusColor = (statusCode) => {
+  if (statusCode >= 500) return "red";
+  if (statusCode >= 400) return "yellow";
+  if (statusCode >= 300) return "cyan";
+  if (statusCode >= 200) return "green";
+  return "white";
 };
 
-export { requestLogger, logError, generateRequestId, LOG_LEVELS };
+/**
+ * Request Logger Middleware
+ * @description Express middleware for logging HTTP requests
+ *
+ * @param {Object} options - Logger options
+ * @param {boolean} options.logBody - Whether to log request body
+ * @param {boolean} options.logQuery - Whether to log query parameters
+ * @param {Array} options.skipPaths - Paths to skip logging
+ *
+ * @returns {Function} Express middleware
+ */
+const requestLogger = (options = {}) => {
+  const {
+    logBody = false,
+    logQuery = false,
+    skipPaths = ["/health", "/favicon.ico"],
+  } = options;
+
+  return (req, res, next) => {
+    // Skip logging for certain paths
+    if (skipPaths.some((p) => req.path.startsWith(p))) {
+      return next();
+    }
+
+    const requestId = generateRequestId();
+    const startTime = Date.now();
+
+    // Attach request ID to request object
+    req.requestId = requestId;
+
+    // Log incoming request
+    const logData = {
+      requestId,
+      method: req.method,
+      url: req.originalUrl,
+      ip: req.ip || req.connection.remoteAddress,
+      userAgent: req.get("user-agent"),
+    };
+
+    if (logBody && req.body && Object.keys(req.body).length > 0) {
+      logData.body = maskSensitiveData(req.body);
+    }
+
+    if (logQuery && req.query && Object.keys(req.query).length > 0) {
+      logData.query = req.query;
+    }
+
+    logger.info(`→ ${req.method} ${req.originalUrl}`, logData);
+
+    // Capture response
+    res.on("finish", () => {
+      const duration = Date.now() - startTime;
+      const level = res.statusCode >= 400 ? "warn" : "info";
+
+      logger[level](
+        `← ${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`,
+        {
+          requestId,
+          statusCode: res.statusCode,
+          duration: `${duration}ms`,
+        },
+      );
+    });
+
+    next();
+  };
+};
+
+/**
+ * Error Logger
+ * @description Logs errors with full stack trace and context
+ *
+ * @param {Error} error - Error object
+ * @param {Object} req - Express request object  (optional)
+ */
+const logError = (error, req = null) => {
+  const errorData = {
+    message: error.message,
+    stack: error.stack,
+    name: error.name,
+  };
+
+  if (req) {
+    errorData.requestId = req.requestId;
+    errorData.method = req.method;
+    errorData.url = req.originalUrl;
+    errorData.userId = req.user?.user_id;
+  }
+
+  logger.error(error.message, errorData);
+};
+
+/**
+ * HTTP Logger (for specific HTTP events)
+ */
+const httpLogger = {
+  request: (req, message = "Incoming request") => {
+    logger.http(message, {
+      requestId: req.requestId,
+      method: req.method,
+      url: req.originalUrl,
+    });
+  },
+  response: (req, res, message = "Response sent") => {
+    logger.http(message, {
+      requestId: req.requestId,
+      statusCode: res.statusCode,
+    });
+  },
+};
+
+/**
+ * Database Logger
+ */
+const dbLogger = {
+  connect: (dbName) => logger.info(`Connected to database: ${dbName}`),
+  disconnect: () => logger.info("Disconnected from database"),
+  error: (error) => logger.error("Database error", { error: error.message }),
+  query: (query, duration) =>
+    logger.debug(`Query executed in ${duration}ms`, { query }),
+};
+
+/**
+ * Auth Logger
+ */
+const authLogger = {
+  login: (userId, success = true) => {
+    if (success) {
+      logger.info(`User logged in: ${userId}`);
+    } else {
+      logger.warn(`Failed login attempt for user: ${userId}`);
+    }
+  },
+  logout: (userId) => logger.info(`User logged out: ${userId}`),
+  tokenExpired: (userId) => logger.warn(`Token expired for user: ${userId}`),
+};
+
+export {
+  logger,
+  requestLogger,
+  logError,
+  httpLogger,
+  dbLogger,
+  authLogger,
+  generateRequestId,
+  maskSensitiveData,
+};

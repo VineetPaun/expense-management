@@ -2,11 +2,10 @@
  * @fileoverview Error Handling Middleware
  * @description Centralized error handling middleware for consistent error responses.
  * Handles various error types and provides appropriate HTTP status codes.
- *
- * Naming Convention:
- * - JavaScript variables: camelCase
- * - API response fields: snake_case (for consistency with database)
+ * Integrated with Winston logger for structured error logging.
  */
+
+import { logger, logError } from "./logger.js";
 
 /**
  * Custom API Error Class
@@ -67,6 +66,7 @@ const notFoundHandler = (req, res, next) => {
  * Global Error Handler
  * @description Centralized error handling middleware.
  * Formats error responses consistently across the API.
+ * Uses Winston logger for error logging.
  *
  * @param {Error} err - Error object
  * @param {Object} req - Express request object
@@ -74,14 +74,8 @@ const notFoundHandler = (req, res, next) => {
  * @param {Function} next - Express next function
  */
 const globalErrorHandler = (err, req, res, next) => {
-  // Log error for debugging (in development)
-  if (process.env.NODE_ENV !== "production") {
-    console.error("Error:", {
-      message: err.message,
-      stack: err.stack,
-      statusCode: err.statusCode,
-    });
-  }
+  // Log error using Winston
+  logError(err, req);
 
   // Handle Mongoose Validation Errors
   if (err.name === "ValidationError") {
@@ -162,12 +156,6 @@ const globalErrorHandler = (err, req, res, next) => {
  *
  * @param {Function} fn - Async function to wrap
  * @returns {Function} Express middleware function
- *
- * @example
- * router.get('/users', asyncHandler(async (req, res) => {
- *   const users = await User.find();
- *   res.json(users);
- * }));
  */
 const asyncHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next);
