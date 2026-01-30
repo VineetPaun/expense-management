@@ -1,15 +1,6 @@
 /**
  * @fileoverview Express Server Entry Point
  * @description Main entry point for the Expense Management API.
- * Sets up Express server with comprehensive middleware stack,
- * database connection, and route handlers.
- * Uses Winston for structured logging.
- *
- * @requires express - Web framework for Node.js
- * @requires cors - Cross-Origin Resource Sharing middleware
- * @requires mongoose - MongoDB ODM
- * @requires dotenv - Environment variable loader
- * @requires winston - Logging framework
  */
 
 import express from "express";
@@ -29,10 +20,11 @@ import transactionRouter from "./routes/transaction.js";
 import {
   notFoundHandler,
   globalErrorHandler,
-} from "./middlewares/errorHandler.js";
-import { generalLimiter } from "./middlewares/rateLimiter.js";
-import { sanitizeInput } from "./middlewares/validator.js";
-import { requestLogger, logger } from "./middlewares/logger.js";
+} from "./middlewares/error/global.error.middleware.js";
+import { generalLimiter } from "./middlewares/ratelimit/limiters.ratelimit.middleware.js";
+import { sanitizeInput } from "./middlewares/validator/sanitize.validator.middleware.js";
+import { requestLogger } from "./middlewares/logger/request.logger.middleware.js";
+import { logger } from "./middlewares/logger/main.logger.middleware.js";
 
 // Initialize Express application
 const app = express();
@@ -41,17 +33,14 @@ const app = express();
 // Security & Request Headers
 // ============================================
 
-// Disable X-Powered-By header for security
 app.disable("x-powered-by");
-
-// Trust proxy (needed for rate limiting behind reverse proxy)
 app.set("trust proxy", 1);
 
 // ============================================
-// Middleware Configuration (Order Matters!)
+// Middleware Configuration
 // ============================================
 
-// 1. Request Logging with Winston (first to capture all requests)
+// 1. Request Logging with Winston
 app.use(
   requestLogger({
     logBody: process.env.NODE_ENV !== "production",
@@ -67,7 +56,7 @@ app.use(
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
-    maxAge: 86400, // 24 hours
+    maxAge: 86400,
   }),
 );
 
@@ -75,21 +64,16 @@ app.use(
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(express.json({ limit: "10mb" }));
 
-// 4. Input sanitization (XSS prevention)
+// 4. Input sanitization
 app.use(sanitizeInput);
 
-// 5. General rate limiting (applies to all routes)
+// 5. General rate limiting
 app.use(generalLimiter);
 
 // ============================================
 // Health Check Endpoint
 // ============================================
 
-/**
- * @route GET /health
- * @description Health check endpoint for monitoring
- * @access Public
- */
 app.get("/health", (req, res) => {
   res.status(200).json({
     success: true,
@@ -104,23 +88,16 @@ app.get("/health", (req, res) => {
 // Database Connection
 // ============================================
 
-// Initialize MongoDB connection
 connectDB();
 
 // ============================================
 // API Route Definitions
 // ============================================
 
-// API version prefix (optional)
 const apiPrefix = process.env.API_PREFIX || "";
 
-// User authentication routes (signup, signin, profile)
 app.use(`${apiPrefix}/`, userRouter);
-
-// Account management routes
 app.use(`${apiPrefix}/account`, accountRouter);
-
-// Transaction routes (nested under account)
 app.use(`${apiPrefix}/account/transaction`, transactionRouter);
 
 // ============================================
@@ -128,21 +105,11 @@ app.use(`${apiPrefix}/account/transaction`, transactionRouter);
 // ============================================
 
 if (process.env.NODE_ENV !== "production") {
-  /**
-   * @route DELETE /drop
-   * @description Drop the entire database (DEVELOPMENT ONLY)
-   * @access Development only
-   *
-   * @warning This will delete all data in the database!
-   */
   app.delete("/drop", async (req, res, next) => {
     try {
       await mongoose.connection.dropDatabase();
       logger.warn("Database dropped via API request");
-      res.json({
-        success: true,
-        message: "Database dropped successfully",
-      });
+      res.json({ success: true, message: "Database dropped successfully" });
     } catch (error) {
       next(error);
     }
@@ -150,13 +117,10 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 // ============================================
-// Error Handling (Must be last!)
+// Error Handling
 // ============================================
 
-// Handle 404 - Route not found
 app.use(notFoundHandler);
-
-// Global error handler
 app.use(globalErrorHandler);
 
 // ============================================
@@ -167,10 +131,8 @@ const gracefulShutdown = async (signal) => {
   logger.info(`Received ${signal}. Starting graceful shutdown...`);
 
   try {
-    // Close MongoDB connection
     await mongoose.connection.close();
     logger.info("MongoDB connection closed.");
-
     process.exit(0);
   } catch (error) {
     logger.error("Error during shutdown", { error: error.message });
@@ -178,16 +140,13 @@ const gracefulShutdown = async (signal) => {
   }
 };
 
-// Handle shutdown signals
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
-// Handle unhandled promise rejections (Winston handles this, but log explicitly)
 process.on("unhandledRejection", (reason, promise) => {
   logger.error("Unhandled Rejection", { reason, promise });
 });
 
-// Handle uncaught exceptions (Winston handles this, but log explicitly)
 process.on("uncaughtException", (error) => {
   logger.error("Uncaught Exception", {
     error: error.message,
@@ -220,7 +179,6 @@ const server = app.listen(port, () => {
   `);
 });
 
-// Handle server errors
 server.on("error", (error) => {
   if (error.code === "EADDRINUSE") {
     logger.error(`Port ${port} is already in use`);

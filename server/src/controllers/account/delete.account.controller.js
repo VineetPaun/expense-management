@@ -4,7 +4,7 @@
  */
 
 import { Account } from "../../models/Account.js";
-import { ApiError } from "../../middlewares/errorHandler.js";
+import { ApiError } from "../../middlewares/error/api.error.middleware.js";
 
 const deleteAccount = async (req, res) => {
   const { id } = req.params;

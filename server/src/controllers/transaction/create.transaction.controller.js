@@ -4,8 +4,8 @@
  */
 
 import { Transaction, ALL_CATEGORIES } from "../../models/Transaction.js";
-import { ApiError } from "../../middlewares/errorHandler.js";
-import { logger } from "../../middlewares/logger.js";
+import { ApiError } from "../../middlewares/error/api.error.middleware.js";
+import { logger } from "../../middlewares/logger/main.logger.middleware.js";
 import {
   findAccountById,
   updateAccountBalance,

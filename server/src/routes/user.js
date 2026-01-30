@@ -7,13 +7,11 @@ import express from "express";
 import { signup } from "../controllers/user/signup.user.controller.js";
 import { signin } from "../controllers/user/signin.user.controller.js";
 import { getProfile } from "../controllers/user/profile.user.controller.js";
-import {
-  validateAuthInput,
-  checkUser,
-  verifyToken,
-} from "../middlewares/auth.js";
-import { asyncHandler } from "../middlewares/errorHandler.js";
-import { authLimiter } from "../middlewares/rateLimiter.js";
+import { validateAuthInput } from "../middlewares/auth/validate.auth.middleware.js";
+import { checkUser } from "../middlewares/auth/check.auth.middleware.js";
+import { verifyToken } from "../middlewares/auth/verify.auth.middleware.js";
+import { asyncHandler } from "../middlewares/error/global.error.middleware.js";
+import { authLimiter } from "../middlewares/ratelimit/limiters.ratelimit.middleware.js";
 
 const router = express.Router();
 

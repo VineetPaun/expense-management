@@ -5,7 +5,7 @@
 
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { ApiError } from "../../middlewares/errorHandler.js";
+import { ApiError } from "../../middlewares/error/api.error.middleware.js";
 import { JWT_CONFIG } from "../../utils/constants.js";
 
 const signin = async (req, res) => {

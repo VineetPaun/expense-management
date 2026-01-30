@@ -1,24 +1,20 @@
 /**
  * @fileoverview Database Configuration
  * @description Handles MongoDB connection setup and management.
- * Uses environment variables for secure connection string storage.
- * Integrated with Winston logger for structured logging.
  */
 
 import mongoose from "mongoose";
-import { logger, dbLogger } from "../middlewares/logger.js";
+import { logger } from "../middlewares/logger/main.logger.middleware.js";
+import { dbLogger } from "../middlewares/logger/special.logger.middleware.js";
 
 /**
  * Connect to MongoDB Database
- * @description Establishes connection to MongoDB using the connection URI from environment variables.
- * Uses Winston logger for connection status logging.
  */
 export const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGODB_URI);
     dbLogger.connect(conn.connection.name);
 
-    // Log connection events
     mongoose.connection.on("disconnected", () => {
       dbLogger.disconnect();
     });

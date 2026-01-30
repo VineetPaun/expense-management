@@ -8,7 +8,7 @@ import {
   SUPPORTED_BANKS,
   ACCOUNT_TYPES,
 } from "../../models/Account.js";
-import { ApiError } from "../../middlewares/errorHandler.js";
+import { ApiError } from "../../middlewares/error/api.error.middleware.js";
 
 const updateAccount = async (req, res) => {
   const { id } = req.params;

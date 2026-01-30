@@ -4,7 +4,7 @@
  */
 
 import { User } from "../../models/User.js";
-import { ApiError } from "../../middlewares/errorHandler.js";
+import { ApiError } from "../../middlewares/error/api.error.middleware.js";
 
 const getProfile = async (req, res) => {
   const user = await User.findOne({ user_id: req.user.user_id }).select(

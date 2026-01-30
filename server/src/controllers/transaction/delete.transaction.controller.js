@@ -5,7 +5,7 @@
 
 import { Transaction } from "../../models/Transaction.js";
 import { Account } from "../../models/Account.js";
-import { ApiError } from "../../middlewares/errorHandler.js";
+import { ApiError } from "../../middlewares/error/api.error.middleware.js";
 import {
   updateAccountBalance,
   calculateNewBalance,

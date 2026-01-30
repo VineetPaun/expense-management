@@ -4,14 +4,16 @@
  */
 
 import express from "express";
-import { getAllAccounts } from "../controllers/account/get.account.controller.js";
-import { getAccountById } from "../controllers/account/get.account.controller.js";
+import {
+  getAllAccounts,
+  getAccountById,
+} from "../controllers/account/get.account.controller.js";
 import { createAccount } from "../controllers/account/create.account.controller.js";
 import { deleteAccount } from "../controllers/account/delete.account.controller.js";
 import { updateAccount } from "../controllers/account/update.account.controller.js";
-import { verifyToken } from "../middlewares/auth.js";
-import { asyncHandler } from "../middlewares/errorHandler.js";
-import { validateParams } from "../middlewares/validator.js";
+import { verifyToken } from "../middlewares/auth/verify.auth.middleware.js";
+import { asyncHandler } from "../middlewares/error/global.error.middleware.js";
+import { validateParams } from "../middlewares/validator/params.validator.middleware.js";
 
 const router = express.Router();
 
