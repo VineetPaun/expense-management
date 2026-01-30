@@ -1,7 +1,8 @@
 /**
  * @fileoverview Account Management Routes
  * @description Handles CRUD operations for user bank accounts.
- * Uses UUID for account identification. All routes require JWT authentication.
+ * Includes pagination and search functionality.
+ * Uses asyncHandler for proper error handling.
  */
 
 import express from "express";
@@ -11,218 +12,264 @@ import {
   SUPPORTED_BANKS,
   ACCOUNT_TYPES,
 } from "../models/index.js";
-import { verifyToken } from "../middlewares/index.js";
+import {
+  verifyToken,
+  asyncHandler,
+  ApiError,
+  validateParams,
+} from "../middlewares/index.js";
 
 const router = express.Router();
 
 /**
  * @route GET /account
- * @description Get all accounts for the authenticated user
+ * @description Get all accounts for the authenticated user with pagination and search
  * @access Private (requires valid JWT token)
- *
- * @header {string} Authorization - Bearer token
- *
- * @returns {Object} Array of user's accounts with account details
- * @throws {500} If database error occurs
  */
-router.get("/", verifyToken, async (req, res) => {
-  try {
-    // Get userId (UUID) from JWT payload
-    const userId = req.user.userId;
+router.get(
+  "/",
+  verifyToken,
+  asyncHandler(async (req, res) => {
+    const user_id = req.user.user_id;
 
-    // Find all active accounts belonging to this user
-    const accounts = await Account.find({ userId, isActive: true }).sort({
-      createdAt: -1,
-    }); // Newest first
+    // Pagination parameters
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10));
+    const skip = (page - 1) * limit;
+
+    // Search and filter parameters
+    const { search, bank_name, account_type, sort_by, sort_order } = req.query;
+
+    // Build query filter
+    const filter = { user_id, is_active: true };
+
+    // Search filter (searches bank_name and account_number)
+    if (search) {
+      filter.$or = [
+        { bank_name: { $regex: search, $options: "i" } },
+        { account_number: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Bank name filter
+    if (bank_name && SUPPORTED_BANKS.includes(bank_name)) {
+      filter.bank_name = bank_name;
+    }
+
+    // Account type filter
+    if (account_type && ACCOUNT_TYPES.includes(account_type)) {
+      filter.account_type = account_type;
+    }
+
+    // Build sort options
+    const validSortFields = [
+      "created_at",
+      "current_balance",
+      "bank_name",
+      "account_type",
+    ];
+    const sortField = validSortFields.includes(sort_by)
+      ? sort_by
+      : "created_at";
+    const sortDirection = sort_order === "asc" ? 1 : -1;
+    const sortOptions = { [sortField]: sortDirection };
+
+    // Execute query with pagination
+    const [accounts, total_count] = await Promise.all([
+      Account.find(filter)
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(limit)
+        .select("-__v"),
+      Account.countDocuments(filter),
+    ]);
+
+    // Calculate pagination metadata
+    const total_pages = Math.ceil(total_count / limit);
 
     res.status(200).json({
-      accounts,
-      supportedBanks: SUPPORTED_BANKS,
-      accountTypes: ACCOUNT_TYPES,
+      success: true,
+      data: {
+        accounts,
+        pagination: {
+          current_page: page,
+          total_pages,
+          total_count,
+          per_page: limit,
+          has_next_page: page < total_pages,
+          has_prev_page: page > 1,
+        },
+      },
+      filters: {
+        supported_banks: SUPPORTED_BANKS,
+        account_types: ACCOUNT_TYPES,
+      },
     });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+  }),
+);
 
 /**
  * @route GET /account/:id
- * @description Get a specific account by accountId (UUID)
+ * @description Get a specific account by account_id (UUID)
  * @access Private (requires valid JWT token)
- *
- * @header {string} Authorization - Bearer token
- * @param {string} id - Account UUID
- *
- * @returns {Object} Account details
- * @throws {404} If account not found
- * @throws {500} If database error occurs
  */
-router.get("/:id", verifyToken, async (req, res) => {
-  try {
+router.get(
+  "/:id",
+  verifyToken,
+  validateParams({ id: { required: true, type: "uuid" } }),
+  asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const userId = req.user.userId;
+    const user_id = req.user.user_id;
 
     const account = await Account.findOne({
-      accountId: id,
-      userId,
-      isActive: true,
-    });
+      account_id: id,
+      user_id,
+      is_active: true,
+    }).select("-__v");
 
     if (!account) {
-      return res.status(404).json({ message: "Account not found" });
+      throw ApiError.notFound("Account not found");
     }
 
-    res.status(200).json({ account });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    res.status(200).json({
+      success: true,
+      data: { account },
+    });
+  }),
+);
 
 /**
  * @route POST /account/add
  * @description Create a new bank account for the user
  * @access Private (requires valid JWT token)
- *
- * @header {string} Authorization - Bearer token
- * @body {string} bankName - Name of the bank (from SUPPORTED_BANKS)
- * @body {string} accountType - Type of account (from ACCOUNT_TYPES)
- * @body {string} [accountNumber] - Optional bank account number
- * @body {number} [balance] - Optional initial balance (default: 0)
- *
- * @returns {Object} Created account object with success message
- * @throws {400} If validation fails
- * @throws {500} If database error occurs
  */
-router.post("/add", verifyToken, async (req, res) => {
-  try {
-    const { bankName, accountType, accountNumber, balance } = req.body;
-    const userId = req.user.userId;
+router.post(
+  "/add",
+  verifyToken,
+  asyncHandler(async (req, res) => {
+    const { bank_name, account_type, account_number, current_balance } =
+      req.body;
+    const user_id = req.user.user_id;
 
-    // Validate userId exists in token
-    if (!userId) {
-      return res.status(400).json({ message: "User ID missing from token" });
+    // Validate required fields
+    if (!bank_name) {
+      throw ApiError.badRequest("Bank name is required");
+    }
+
+    if (!SUPPORTED_BANKS.includes(bank_name)) {
+      throw ApiError.badRequest(
+        `Invalid bank name. Supported banks: ${SUPPORTED_BANKS.join(", ")}`,
+      );
+    }
+
+    if (account_type && !ACCOUNT_TYPES.includes(account_type)) {
+      throw ApiError.badRequest(
+        `Invalid account type. Valid types: ${ACCOUNT_TYPES.join(", ")}`,
+      );
     }
 
     // Create new account with UUID (auto-generated)
     const account = await Account.create({
-      userId,
-      bankName,
-      accountType,
-      accountNumber: accountNumber || null,
-      balance: balance || 0,
+      user_id,
+      bank_name,
+      account_type: account_type || "Savings",
+      account_number: account_number || null,
+      current_balance: current_balance || 0,
     });
 
     res.status(201).json({
+      success: true,
       message: "Account created successfully",
-      account,
+      data: { account },
     });
-  } catch (error) {
-    // Handle mongoose validation errors
-    if (error.name === "ValidationError") {
-      return res.status(400).json({
-        message: "Validation error",
-        errors: Object.values(error.errors).map((e) => e.message),
-      });
-    }
-    res.status(500).json({
-      error: error.message,
-    });
-  }
-});
+  }),
+);
 
 /**
  * @route POST /account/remove/:id
- * @description Soft delete an account and all its associated transactions
+ * @description Soft delete an account
  * @access Private (requires valid JWT token)
- *
- * @header {string} Authorization - Bearer token
- * @param {string} id - Account UUID to delete
- *
- * @returns {Object} Success message
- * @throws {404} If account not found or user unauthorized
- * @throws {500} If database error occurs
  */
-router.post("/remove/:id", verifyToken, async (req, res) => {
-  try {
+router.post(
+  "/remove/:id",
+  verifyToken,
+  validateParams({ id: { required: true, type: "uuid" } }),
+  asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const userId = req.user.userId;
+    const user_id = req.user.user_id;
 
-    // Soft delete: Set isActive to false instead of removing
     const account = await Account.findOneAndUpdate(
-      { accountId: id, userId, isActive: true },
-      { isActive: false },
+      { account_id: id, user_id, is_active: true },
+      { is_active: false },
       { new: true },
     );
 
     if (!account) {
-      return res
-        .status(404)
-        .json({ message: "Account not found or unauthorized" });
+      throw ApiError.notFound("Account not found or already deleted");
     }
 
     res.json({
+      success: true,
       message: "Account removed successfully",
-      accountId: id,
+      data: { account_id: id },
     });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+  }),
+);
 
 /**
  * @route POST /account/edit/:id
  * @description Update an existing account's details
  * @access Private (requires valid JWT token)
- *
- * @header {string} Authorization - Bearer token
- * @param {string} id - Account UUID to update
- * @body {string} [bankName] - Updated bank name
- * @body {string} [accountType] - Updated account type
- * @body {string} [accountNumber] - Updated account number
- *
- * @returns {Object} Updated account object with success message
- * @throws {404} If account not found or user unauthorized
- * @throws {500} If database error occurs
  */
-router.post("/edit/:id", verifyToken, async (req, res) => {
-  try {
+router.post(
+  "/edit/:id",
+  verifyToken,
+  validateParams({ id: { required: true, type: "uuid" } }),
+  asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { bankName, accountType, accountNumber } = req.body;
-    const userId = req.user.userId;
+    const { bank_name, account_type, account_number } = req.body;
+    const user_id = req.user.user_id;
+
+    // Validate inputs if provided
+    if (bank_name && !SUPPORTED_BANKS.includes(bank_name)) {
+      throw ApiError.badRequest(
+        `Invalid bank name. Supported banks: ${SUPPORTED_BANKS.join(", ")}`,
+      );
+    }
+
+    if (account_type && !ACCOUNT_TYPES.includes(account_type)) {
+      throw ApiError.badRequest(
+        `Invalid account type. Valid types: ${ACCOUNT_TYPES.join(", ")}`,
+      );
+    }
 
     // Build update object with only provided fields
     const updateData = {};
-    if (bankName) updateData.bankName = bankName;
-    if (accountType) updateData.accountType = accountType;
-    if (accountNumber !== undefined) updateData.accountNumber = accountNumber;
+    if (bank_name) updateData.bank_name = bank_name;
+    if (account_type) updateData.account_type = account_type;
+    if (account_number !== undefined)
+      updateData.account_number = account_number;
 
-    // Find and update account only if it belongs to the authenticated user
+    if (Object.keys(updateData).length === 0) {
+      throw ApiError.badRequest("No valid fields to update");
+    }
+
     const account = await Account.findOneAndUpdate(
-      { accountId: id, userId, isActive: true },
+      { account_id: id, user_id, is_active: true },
       updateData,
       { new: true, runValidators: true },
-    );
+    ).select("-__v");
 
     if (!account) {
-      return res
-        .status(404)
-        .json({ message: "Account not found or unauthorized" });
+      throw ApiError.notFound("Account not found or unauthorized");
     }
 
     res.json({
+      success: true,
       message: "Account updated successfully",
-      account,
+      data: { account },
     });
-  } catch (error) {
-    // Handle mongoose validation errors
-    if (error.name === "ValidationError") {
-      return res.status(400).json({
-        message: "Validation error",
-        errors: Object.values(error.errors).map((e) => e.message),
-      });
-    }
-    res.status(500).json({ error: error.message });
-  }
-});
+  }),
+);
 
 export default router;

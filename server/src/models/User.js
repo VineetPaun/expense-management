@@ -13,21 +13,21 @@ const { Schema } = mongoose;
  * User Schema
  * @description Represents a registered user in the expense management system.
  *
- * @property {String} userId - UUID v4 unique identifier (auto-generated)
- * @property {String} username - Unique username for authentication (required)
- * @property {String} password - Hashed password for secure authentication (required)
- * @property {Date} createdAt - Timestamp when user was created (auto-generated)
- * @property {Date} updatedAt - Timestamp when user was last updated (auto-generated)
+ * @property {String} user_id - UUID v4 unique identifier (auto-generated)
+ * @property {String} user_name - Unique username for authentication (required)
+ * @property {String} password_hash - Hashed password for secure authentication (required)
+ * @property {Date} created_at - Timestamp when user was created (auto-generated)
+ * @property {Date} updated_at - Timestamp when user was last updated (auto-generated)
  */
 const userSchema = new Schema(
   {
-    userId: {
+    user_id: {
       type: String,
       default: uuidv4,
       unique: true,
       index: true,
     },
-    username: {
+    user_name: {
       type: String,
       required: [true, "Username is required"],
       unique: true,
@@ -35,14 +35,17 @@ const userSchema = new Schema(
       minlength: [3, "Username must be at least 3 characters"],
       maxlength: [50, "Username cannot exceed 50 characters"],
     },
-    password: {
+    password_hash: {
       type: String,
       required: [true, "Password is required"],
       minlength: [6, "Password must be at least 6 characters"],
     },
   },
   {
-    timestamps: true, // Adds createdAt and updatedAt
+    timestamps: {
+      createdAt: "created_at",
+      updatedAt: "updated_at",
+    },
   },
 );
 

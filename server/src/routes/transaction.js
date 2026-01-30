@@ -1,8 +1,8 @@
 /**
  * @fileoverview Transaction Management Routes
  * @description Handles CRUD operations for financial transactions.
- * Uses UUID for identification. Stores balanceBefore and balanceAfter for
- * bank-like statement generation. All routes require JWT authentication.
+ * Includes pagination, searching, and filtering functionality.
+ * Uses asyncHandler for proper error handling.
  */
 
 import express from "express";
@@ -12,257 +12,363 @@ import {
   TRANSACTION_CATEGORIES,
   ALL_CATEGORIES,
 } from "../models/index.js";
-import { verifyToken } from "../middlewares/index.js";
+import {
+  verifyToken,
+  asyncHandler,
+  ApiError,
+  validateParams,
+} from "../middlewares/index.js";
 
 const router = express.Router();
+
+/**
+ * Transaction Types
+ */
+const TRANSACTION_TYPES = ["credit", "debit"];
 
 /**
  * @route POST /account/transaction/add/:id
  * @description Create a new transaction for an account with balance tracking
  * @access Private (requires valid JWT token)
- *
- * @header {string} Authorization - Bearer token
- * @param {string} id - Account UUID to add transaction to
- * @body {number} amount - Transaction amount (must be positive)
- * @body {string} type - Transaction type ('income' or 'expense')
- * @body {string} category - Category for the transaction
- * @body {string} [description] - Optional description/note
- * @body {Date} [transactionDate] - Optional transaction date (default: now)
- * @body {string} [referenceNumber] - Optional reference/cheque number
- *
- * @returns {Object} Created transaction with balanceBefore and balanceAfter
- * @throws {404} If account not found
- * @throws {400} If validation fails or insufficient balance for expense
- * @throws {500} If database error occurs
  */
-router.post("/add/:id", verifyToken, async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const { id } = req.params; // Account UUID
+router.post(
+  "/add/:id",
+  verifyToken,
+  validateParams({ id: { required: true, type: "uuid" } }),
+  asyncHandler(async (req, res) => {
+    const user_id = req.user.user_id;
+    const { id } = req.params;
     const {
-      amount,
-      type,
-      category,
-      description,
-      transactionDate,
-      referenceNumber,
+      transaction_amount,
+      transaction_type,
+      transaction_category,
+      transaction_description,
+      transaction_date,
+      reference_number,
     } = req.body;
 
+    // Validate required fields
+    if (!transaction_amount) {
+      throw ApiError.badRequest("Transaction amount is required");
+    }
+
+    if (!transaction_type) {
+      throw ApiError.badRequest("Transaction type is required");
+    }
+
+    if (!transaction_category) {
+      throw ApiError.badRequest("Transaction category is required");
+    }
+
     // Validate amount is positive
-    const transactionAmount = parseFloat(amount);
-    if (isNaN(transactionAmount) || transactionAmount <= 0) {
-      return res
-        .status(400)
-        .json({ message: "Amount must be a positive number" });
+    const amount = parseFloat(transaction_amount);
+    if (isNaN(amount) || amount <= 0) {
+      throw ApiError.badRequest("Transaction amount must be a positive number");
+    }
+
+    // Validate transaction type
+    if (!TRANSACTION_TYPES.includes(transaction_type)) {
+      throw ApiError.badRequest(
+        `Invalid transaction type. Valid types: ${TRANSACTION_TYPES.join(", ")}`,
+      );
+    }
+
+    // Validate category
+    if (!ALL_CATEGORIES.includes(transaction_category)) {
+      throw ApiError.badRequest(
+        `Invalid category. Valid categories: ${ALL_CATEGORIES.join(", ")}`,
+      );
     }
 
     // Find the account and get current balance
     const account = await Account.findOne({
-      accountId: id,
-      userId,
-      isActive: true,
+      account_id: id,
+      user_id,
+      is_active: true,
     });
+
     if (!account) {
-      return res.status(404).json({ message: "Account not found" });
+      throw ApiError.notFound("Account not found");
     }
 
-    // Store balance BEFORE the transaction (like banks do)
-    const balanceBefore = account.balance;
+    // Store opening balance (balance BEFORE the transaction)
+    const opening_balance = account.current_balance;
+    let closing_balance;
 
-    // Calculate new balance based on transaction type
-    let balanceAfter;
-    if (type === "income") {
-      balanceAfter = balanceBefore + transactionAmount;
-    } else if (type === "expense") {
-      // Check for sufficient balance (optional: allow negative balance)
-      if (balanceBefore < transactionAmount) {
-        return res.status(400).json({
-          message: "Insufficient balance",
-          currentBalance: balanceBefore,
-          requestedAmount: transactionAmount,
-        });
-      }
-      balanceAfter = balanceBefore - transactionAmount;
+    // Calculate closing balance based on transaction type
+    if (transaction_type === "credit") {
+      closing_balance = opening_balance + amount;
     } else {
-      return res.status(400).json({ message: "Invalid transaction type" });
+      // Check for sufficient balance for debit
+      if (opening_balance < amount) {
+        throw ApiError.badRequest("Insufficient balance", [
+          { field: "current_balance", value: opening_balance },
+          { field: "requested_amount", value: amount },
+        ]);
+      }
+      closing_balance = opening_balance - amount;
     }
 
     // Create the transaction record with balance tracking
     const transaction = await Transaction.create({
-      userId,
-      accountId: id,
-      amount: transactionAmount,
-      type,
-      category,
-      description: description || null,
-      balanceBefore,
-      balanceAfter,
-      transactionDate: transactionDate || new Date(),
-      referenceNumber: referenceNumber || null,
+      user_id,
+      account_id: id,
+      transaction_amount: amount,
+      transaction_type,
+      transaction_category,
+      transaction_description: transaction_description || null,
+      opening_balance,
+      closing_balance,
+      transaction_date: transaction_date || new Date(),
+      reference_number: reference_number || null,
     });
 
-    // Update account balance
-    account.balance = balanceAfter;
+    // Update account current balance
+    account.current_balance = closing_balance;
     await account.save();
 
     console.log(
-      `Transaction created: ${transaction.transactionId} | Balance: ${balanceBefore} → ${balanceAfter}`,
+      `Transaction created: ${transaction.transaction_id} | Balance: ${opening_balance} → ${closing_balance}`,
     );
 
     res.status(201).json({
+      success: true,
       message: "Transaction created successfully",
-      transaction: {
-        transactionId: transaction.transactionId,
-        amount: transaction.amount,
-        type: transaction.type,
-        category: transaction.category,
-        description: transaction.description,
-        balanceBefore: transaction.balanceBefore,
-        balanceAfter: transaction.balanceAfter,
-        transactionDate: transaction.transactionDate,
-        createdAt: transaction.createdAt,
-      },
+      data: { transaction },
     });
-  } catch (error) {
-    // Handle mongoose validation errors
-    if (error.name === "ValidationError") {
-      return res.status(400).json({
-        message: "Validation error",
-        errors: Object.values(error.errors).map((e) => e.message),
-      });
-    }
-    res.status(500).json({ error: error.message });
-  }
-});
+  }),
+);
 
 /**
  * @route DELETE /account/transaction/remove
  * @description Delete a transaction and reverse its effect on account balance
  * @access Private (requires valid JWT token)
- *
- * @header {string} Authorization - Bearer token
- * @body {string} id - Transaction UUID to delete
- *
- * @returns {Object} Deleted transaction info with updated balance
- * @throws {404} If transaction not found
- * @throws {500} If database error occurs
  */
-router.delete("/remove/", verifyToken, async (req, res) => {
-  try {
+router.delete(
+  "/remove/",
+  verifyToken,
+  asyncHandler(async (req, res) => {
     const { id } = req.body;
-    const userId = req.user.userId;
+    const user_id = req.user.user_id;
+
+    if (!id) {
+      throw ApiError.badRequest("Transaction ID is required");
+    }
 
     // Find the transaction to get its details before deletion
     const transactionToDelete = await Transaction.findOne({
-      transactionId: id,
-      userId,
+      transaction_id: id,
+      user_id,
     });
+
     if (!transactionToDelete) {
-      return res.status(404).json({ message: "Transaction not found" });
+      throw ApiError.notFound("Transaction not found");
     }
 
     // Reverse the balance change
     const account = await Account.findOne({
-      accountId: transactionToDelete.accountId,
-      userId,
-      isActive: true,
+      account_id: transactionToDelete.account_id,
+      user_id,
+      is_active: true,
     });
 
     if (account) {
       // Reverse the transaction effect
-      if (transactionToDelete.type === "income") {
-        // Remove the income that was previously added
-        account.balance -= transactionToDelete.amount;
+      if (transactionToDelete.transaction_type === "credit") {
+        account.current_balance -= transactionToDelete.transaction_amount;
       } else {
-        // Add back the expense that was previously subtracted
-        account.balance += transactionToDelete.amount;
+        account.current_balance += transactionToDelete.transaction_amount;
       }
       await account.save();
     }
 
     // Delete the transaction record
-    await Transaction.deleteOne({ transactionId: id });
+    await Transaction.deleteOne({ transaction_id: id });
 
     res.status(200).json({
+      success: true,
       message: "Transaction deleted successfully",
-      deletedTransactionId: id,
-      newBalance: account ? account.balance : null,
+      data: {
+        deleted_transaction_id: id,
+        new_balance: account ? account.current_balance : null,
+      },
     });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+  }),
+);
 
 /**
  * @route GET /account/transaction/:id
- * @description Get all transactions for a specific account (bank statement format)
+ * @description Get all transactions for a specific account with pagination and search
  * @access Private (requires valid JWT token)
- *
- * @header {string} Authorization - Bearer token
- * @param {string} id - Account UUID to fetch transactions for
- * @query {string} [startDate] - Filter by start date (ISO format)
- * @query {string} [endDate] - Filter by end date (ISO format)
- * @query {string} [type] - Filter by type ('income' or 'expense')
- *
- * @returns {Object} Array of transactions with balance tracking (like bank statement)
- * @throws {500} If database error occurs
  */
-router.get("/:id", verifyToken, async (req, res) => {
-  try {
-    const { id } = req.params; // Account UUID
-    const userId = req.user.userId;
-    const { startDate, endDate, type } = req.query;
+router.get(
+  "/:id",
+  verifyToken,
+  validateParams({ id: { required: true, type: "uuid" } }),
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const user_id = req.user.user_id;
+
+    // Pagination parameters
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 10));
+    const skip = (page - 1) * limit;
+
+    // Search and filter parameters
+    const {
+      search,
+      start_date,
+      end_date,
+      transaction_type,
+      transaction_category,
+      min_amount,
+      max_amount,
+      sort_by,
+      sort_order,
+    } = req.query;
+
+    // Verify account exists and belongs to user
+    const account = await Account.findOne({
+      account_id: id,
+      user_id,
+      is_active: true,
+    });
+
+    if (!account) {
+      throw ApiError.notFound("Account not found");
+    }
 
     // Build query filter
-    const filter = { accountId: id, userId };
+    const filter = { account_id: id, user_id };
+
+    // Search filter (searches description and reference_number)
+    if (search) {
+      filter.$or = [
+        { transaction_description: { $regex: search, $options: "i" } },
+        { reference_number: { $regex: search, $options: "i" } },
+        { transaction_category: { $regex: search, $options: "i" } },
+      ];
+    }
 
     // Date range filter
-    if (startDate || endDate) {
-      filter.transactionDate = {};
-      if (startDate) filter.transactionDate.$gte = new Date(startDate);
-      if (endDate) filter.transactionDate.$lte = new Date(endDate);
+    if (start_date || end_date) {
+      filter.transaction_date = {};
+      if (start_date) filter.transaction_date.$gte = new Date(start_date);
+      if (end_date) filter.transaction_date.$lte = new Date(end_date);
     }
 
-    // Type filter
-    if (type && ["income", "expense"].includes(type)) {
-      filter.type = type;
+    // Transaction type filter
+    if (transaction_type && TRANSACTION_TYPES.includes(transaction_type)) {
+      filter.transaction_type = transaction_type;
     }
 
-    // Find all transactions, sorted by date (newest first) for statement view
-    const transactions = await Transaction.find(filter)
-      .sort({ transactionDate: -1, createdAt: -1 })
-      .select("-__v");
+    // Category filter
+    if (transaction_category && ALL_CATEGORIES.includes(transaction_category)) {
+      filter.transaction_category = transaction_category;
+    }
 
-    // Get account info for current balance
-    const account = await Account.findOne({
-      accountId: id,
-      userId,
-      isActive: true,
+    // Amount range filter
+    if (min_amount || max_amount) {
+      filter.transaction_amount = {};
+      if (min_amount) filter.transaction_amount.$gte = parseFloat(min_amount);
+      if (max_amount) filter.transaction_amount.$lte = parseFloat(max_amount);
+    }
+
+    // Build sort options
+    const validSortFields = [
+      "transaction_date",
+      "transaction_amount",
+      "created_at",
+      "transaction_type",
+    ];
+    const sortField = validSortFields.includes(sort_by)
+      ? sort_by
+      : "transaction_date";
+    const sortDirection = sort_order === "asc" ? 1 : -1;
+    const sortOptions = { [sortField]: sortDirection };
+
+    // Execute query with pagination
+    const [transactions, total_count] = await Promise.all([
+      Transaction.find(filter)
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(limit)
+        .select("-__v"),
+      Transaction.countDocuments(filter),
+    ]);
+
+    // Calculate summary statistics
+    const summaryPipeline = [
+      { $match: filter },
+      {
+        $group: {
+          _id: "$transaction_type",
+          total_amount: { $sum: "$transaction_amount" },
+          count: { $sum: 1 },
+        },
+      },
+    ];
+    const summaryStats = await Transaction.aggregate(summaryPipeline);
+
+    const summary = {
+      total_credit: 0,
+      total_debit: 0,
+      credit_count: 0,
+      debit_count: 0,
+    };
+    summaryStats.forEach((stat) => {
+      if (stat._id === "credit") {
+        summary.total_credit = stat.total_amount;
+        summary.credit_count = stat.count;
+      } else if (stat._id === "debit") {
+        summary.total_debit = stat.total_amount;
+        summary.debit_count = stat.count;
+      }
     });
+
+    // Calculate pagination metadata
+    const total_pages = Math.ceil(total_count / limit);
 
     res.status(200).json({
-      transactions,
-      currentBalance: account ? account.balance : null,
-      totalTransactions: transactions.length,
-      categories: TRANSACTION_CATEGORIES,
+      success: true,
+      data: {
+        transactions,
+        pagination: {
+          current_page: page,
+          total_pages,
+          total_count,
+          per_page: limit,
+          has_next_page: page < total_pages,
+          has_prev_page: page > 1,
+        },
+        summary,
+        current_balance: account.current_balance,
+      },
+      filters: {
+        categories: TRANSACTION_CATEGORIES,
+        transaction_types: TRANSACTION_TYPES,
+      },
     });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+  }),
+);
 
 /**
  * @route GET /account/transaction/categories/list
  * @description Get all available transaction categories
  * @access Private (requires valid JWT token)
- *
- * @returns {Object} Categories grouped by transaction type
  */
-router.get("/categories/list", verifyToken, (req, res) => {
-  res.json({
-    categories: TRANSACTION_CATEGORIES,
-    allCategories: ALL_CATEGORIES,
-  });
-});
+router.get(
+  "/categories/list",
+  verifyToken,
+  asyncHandler(async (req, res) => {
+    res.json({
+      success: true,
+      data: {
+        categories: TRANSACTION_CATEGORIES,
+        all_categories: ALL_CATEGORIES,
+      },
+    });
+  }),
+);
 
 export default router;

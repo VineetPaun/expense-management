@@ -2,6 +2,7 @@
  * @fileoverview User Authentication Routes
  * @description Handles user authentication including signup, signin, and profile retrieval.
  * Uses UUID for user identification. All password storage uses bcrypt hashing.
+ * Uses asyncHandler for proper error handling.
  */
 
 import express from "express";
@@ -12,6 +13,9 @@ import {
   validateAuthInput,
   checkUser,
   verifyToken,
+  asyncHandler,
+  ApiError,
+  authLimiter,
 } from "../middlewares/index.js";
 
 const router = express.Router();
@@ -37,40 +41,36 @@ const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
  */
 router.post(
   "/signup",
+  authLimiter, // Rate limit signup attempts
   validateAuthInput,
   checkUser("signup"),
-  async (req, res) => {
-    try {
-      const { username, password } = req.body;
+  asyncHandler(async (req, res) => {
+    const { username, password } = req.body;
 
-      // Hash password with salt rounds of 10 for security
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      // Create new user in database (userId is auto-generated as UUID)
-      const newUser = await User.create({
-        username,
-        password: hashedPassword,
-      });
-
-      res.status(201).json({
-        message: "User created successfully",
-        user: {
-          userId: newUser.userId,
-          username: newUser.username,
-          createdAt: newUser.createdAt,
-        },
-      });
-    } catch (error) {
-      // Handle mongoose validation errors
-      if (error.name === "ValidationError") {
-        return res.status(400).json({
-          message: "Validation error",
-          errors: Object.values(error.errors).map((e) => e.message),
-        });
-      }
-      res.status(500).json({ error: error.message });
+    // Validate password strength
+    if (password.length < 6) {
+      throw ApiError.badRequest("Password must be at least 6 characters");
     }
-  },
+
+    // Hash password with salt rounds of 10 for security
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create new user in database (user_id is auto-generated as UUID)
+    const newUser = await User.create({
+      user_name: username,
+      password_hash: hashedPassword,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "User created successfully",
+      data: {
+        user_id: newUser.user_id,
+        user_name: newUser.user_name,
+        created_at: newUser.created_at,
+      },
+    });
+  }),
 );
 
 /**
@@ -81,45 +81,49 @@ router.post(
  * @body {string} username - User's username
  * @body {string} password - User's password
  *
- * @returns {Object} userId (UUID), username, JWT token, and success message
+ * @returns {Object} user_id (UUID), user_name, JWT token, and success message
  * @throws {400} If username or password missing
  * @throws {404} If user not found
  * @throws {401} If password is incorrect
  */
 router.post(
   "/signin",
+  authLimiter, // Rate limit signin attempts
   validateAuthInput,
   checkUser("signin"),
-  async (req, res) => {
-    try {
-      const { password } = req.body;
+  asyncHandler(async (req, res) => {
+    const { password } = req.body;
 
-      // Compare provided password with stored hashed password
-      const checkPassword = await bcrypt.compare(password, req.user.password);
-      if (!checkPassword) {
-        return res.status(401).json({ message: "Invalid password" });
-      }
+    // Compare provided password with stored hashed password
+    const isPasswordValid = await bcrypt.compare(
+      password,
+      req.user.password_hash,
+    );
 
-      // Generate JWT token with userId (UUID) and username
-      const token = jwt.sign(
-        {
-          userId: req.user.userId, // Using UUID instead of MongoDB _id
-          username: req.user.username,
-        },
-        JWT_SECRET,
-        { expiresIn: "7d" }, // Token expires in 7 days
-      );
-
-      res.json({
-        userId: req.user.userId,
-        username: req.user.username,
-        token,
-        message: "SignIn successful",
-      });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
+    if (!isPasswordValid) {
+      throw ApiError.unauthorized("Invalid password");
     }
-  },
+
+    // Generate JWT token with user_id (UUID) and user_name
+    const token = jwt.sign(
+      {
+        user_id: req.user.user_id,
+        user_name: req.user.user_name,
+      },
+      JWT_SECRET,
+      { expiresIn: "7d" }, // Token expires in 7 days
+    );
+
+    res.json({
+      success: true,
+      message: "SignIn successful",
+      data: {
+        user_id: req.user.user_id,
+        user_name: req.user.user_name,
+        token,
+      },
+    });
+  }),
 );
 
 /**
@@ -131,29 +135,30 @@ router.post(
  *
  * @returns {Object} User profile data from JWT payload
  */
-router.get("/me", verifyToken, async (req, res) => {
-  try {
+router.get(
+  "/me",
+  verifyToken,
+  asyncHandler(async (req, res) => {
     // Fetch fresh user data from database using UUID
-    const user = await User.findOne({ userId: req.user.userId }).select(
-      "-password",
+    const user = await User.findOne({ user_id: req.user.user_id }).select(
+      "-password_hash -__v",
     );
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      throw ApiError.notFound("User not found");
     }
 
     res.json({
+      success: true,
       message: "User profile fetched successfully",
-      user: {
-        userId: user.userId,
-        username: user.username,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
+      data: {
+        user_id: user.user_id,
+        user_name: user.user_name,
+        created_at: user.created_at,
+        updated_at: user.updated_at,
       },
     });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+  }),
+);
 
 export default router;

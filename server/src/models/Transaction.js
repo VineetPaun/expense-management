@@ -14,14 +14,14 @@ const { Schema } = mongoose;
  * Transaction Types
  * @constant {Array<String>}
  */
-const TRANSACTION_TYPES = ["income", "expense"];
+const TRANSACTION_TYPES = ["credit", "debit"];
 
 /**
  * Transaction Categories
  * @constant {Object} Categories grouped by transaction type
  */
 const TRANSACTION_CATEGORIES = {
-  income: [
+  credit: [
     "Salary",
     "Freelance",
     "Investment",
@@ -29,7 +29,7 @@ const TRANSACTION_CATEGORIES = {
     "Gift",
     "Other Income",
   ],
-  expense: [
+  debit: [
     "Food",
     "Transport",
     "Shopping",
@@ -46,61 +46,61 @@ const TRANSACTION_CATEGORIES = {
  * @constant {Array<String>}
  */
 const ALL_CATEGORIES = [
-  ...TRANSACTION_CATEGORIES.income,
-  ...TRANSACTION_CATEGORIES.expense,
+  ...TRANSACTION_CATEGORIES.credit,
+  ...TRANSACTION_CATEGORIES.debit,
 ];
 
 /**
  * Transaction Schema
- * @description Represents a financial transaction (income or expense).
+ * @description Represents a financial transaction (credit or debit).
  * Stores balance before and after transaction for bank statement-like tracking.
  *
- * @property {String} transactionId - UUID v4 unique identifier (auto-generated)
- * @property {String} userId - UUID reference to the User who made this transaction (required)
- * @property {String} accountId - UUID reference to the Account this transaction belongs to (required)
- * @property {Number} amount - Transaction amount in currency units (required, must be positive)
- * @property {String} type - Transaction type (required: income or expense)
- * @property {String} category - Category of the transaction for classification (required)
- * @property {String} description - Optional description or note for the transaction
- * @property {Number} balanceBefore - Account balance BEFORE this transaction was applied
- * @property {Number} balanceAfter - Account balance AFTER this transaction was applied
- * @property {Date} transactionDate - Date of the transaction (default: current date)
- * @property {String} referenceNumber - Optional reference/cheque number
- * @property {Date} createdAt - Timestamp when transaction was created (auto-generated)
- * @property {Date} updatedAt - Timestamp when transaction was last updated (auto-generated)
+ * @property {String} transaction_id - UUID v4 unique identifier (auto-generated)
+ * @property {String} user_id - UUID reference to the User who made this transaction (required)
+ * @property {String} account_id - UUID reference to the Account this transaction belongs to (required)
+ * @property {Number} transaction_amount - Transaction amount in currency units (required, must be positive)
+ * @property {String} transaction_type - Transaction type (required: credit or debit)
+ * @property {String} transaction_category - Category of the transaction for classification (required)
+ * @property {String} transaction_description - Optional description or note for the transaction
+ * @property {Number} opening_balance - Account balance BEFORE this transaction was applied
+ * @property {Number} closing_balance - Account balance AFTER this transaction was applied
+ * @property {Date} transaction_date - Date of the transaction (default: current date)
+ * @property {String} reference_number - Optional reference/cheque number
+ * @property {Date} created_at - Timestamp when transaction was created (auto-generated)
+ * @property {Date} updated_at - Timestamp when transaction was last updated (auto-generated)
  */
 const transactionSchema = new Schema(
   {
-    transactionId: {
+    transaction_id: {
       type: String,
       default: uuidv4,
       unique: true,
       index: true,
     },
-    userId: {
+    user_id: {
       type: String,
       required: [true, "User ID is required"],
       index: true,
     },
-    accountId: {
+    account_id: {
       type: String,
       required: [true, "Account ID is required"],
       index: true,
     },
-    amount: {
+    transaction_amount: {
       type: Number,
       required: [true, "Transaction amount is required"],
       min: [0.01, "Amount must be greater than 0"],
     },
-    type: {
+    transaction_type: {
       type: String,
       enum: {
         values: TRANSACTION_TYPES,
-        message: "Transaction type must be 'income' or 'expense'",
+        message: "Transaction type must be 'credit' or 'debit'",
       },
       required: [true, "Transaction type is required"],
     },
-    category: {
+    transaction_category: {
       type: String,
       required: [true, "Category is required"],
       enum: {
@@ -108,41 +108,48 @@ const transactionSchema = new Schema(
         message: "Category '{VALUE}' is not valid",
       },
     },
-    description: {
+    transaction_description: {
       type: String,
       trim: true,
       maxlength: [500, "Description cannot exceed 500 characters"],
       default: null,
     },
-    // Balance tracking like banks - stores balance before and after transaction
-    balanceBefore: {
+    // Balance tracking like banks - stores opening and closing balance
+    opening_balance: {
       type: Number,
-      required: [true, "Balance before transaction is required"],
+      required: [true, "Opening balance is required"],
     },
-    balanceAfter: {
+    closing_balance: {
       type: Number,
-      required: [true, "Balance after transaction is required"],
+      required: [true, "Closing balance is required"],
     },
-    transactionDate: {
+    transaction_date: {
       type: Date,
       default: Date.now,
       index: true,
     },
-    referenceNumber: {
+    reference_number: {
       type: String,
       trim: true,
       default: null,
     },
   },
   {
-    timestamps: true, // Adds createdAt and updatedAt
+    timestamps: {
+      createdAt: "created_at",
+      updatedAt: "updated_at",
+    },
   },
 );
 
 // Create compound indexes for efficient queries
-transactionSchema.index({ accountId: 1, transactionDate: -1 }); // For account statement
-transactionSchema.index({ userId: 1, transactionDate: -1 }); // For user transaction history
-transactionSchema.index({ userId: 1, type: 1, transactionDate: -1 }); // For income/expense reports
+transactionSchema.index({ account_id: 1, transaction_date: -1 }); // For account statement
+transactionSchema.index({ user_id: 1, transaction_date: -1 }); // For user transaction history
+transactionSchema.index({
+  user_id: 1,
+  transaction_type: 1,
+  transaction_date: -1,
+}); // For credit/debit reports
 
 // Create and export the Transaction model
 const Transaction = mongoose.model("Transaction", transactionSchema);
