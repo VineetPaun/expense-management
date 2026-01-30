@@ -5,9 +5,9 @@
 
 import express from "express";
 import { createTransaction } from "../controllers/transaction/create.transaction.controller.js";
-import { deleteTransaction } from "../controllers/transaction/deleteTransaction.js";
-import { getTransactionsByAccount } from "../controllers/transaction/getTransactionsByAccount.js";
-import { getCategories } from "../controllers/transaction/getCategories.js";
+import { deleteTransaction } from "../controllers/transaction/delete.transaction.controller.js";
+import { getTransactionsByAccount } from "../controllers/transaction/get.transaction.controller.js";
+import { getCategories } from "../controllers/transaction/get.transaction.controller.js";
 import { verifyToken } from "../middlewares/auth.js";
 import { asyncHandler } from "../middlewares/errorHandler.js";
 import { validateParams } from "../middlewares/validator.js";

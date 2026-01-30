@@ -145,4 +145,14 @@ const getTransactionsByAccount = async (req, res) => {
   });
 };
 
-export { getTransactionsByAccount };
+const getCategories = async (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      categories: TRANSACTION_CATEGORIES,
+      allCategories: ALL_CATEGORIES,
+    },
+  });
+};
+
+export { getTransactionsByAccount, getCategories };

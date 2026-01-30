@@ -4,9 +4,9 @@
  */
 
 import express from "express";
-import { signup } from "../controllers/user/signup.js";
-import { signin } from "../controllers/user/signin.js";
-import { getProfile } from "../controllers/user/getProfile.js";
+import { signup } from "../controllers/user/signup.user.controller.js";
+import { signin } from "../controllers/user/signin.user.controller.js";
+import { getProfile } from "../controllers/user/profile.user.controller.js";
 import {
   validateAuthInput,
   checkUser,
