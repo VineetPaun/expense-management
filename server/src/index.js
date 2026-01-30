@@ -18,7 +18,7 @@ import mongoose from "mongoose";
 import "dotenv/config";
 
 // Import database connection utility
-import { connectDB } from "./config/database.js";
+import { connectDB } from "./config/database.config.js";
 
 // Import route handlers
 import userRouter from "./routes/user.js";

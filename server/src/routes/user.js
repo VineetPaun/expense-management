@@ -1,11 +1,12 @@
 /**
  * @fileoverview User Authentication Routes
  * @description Defines routes for user authentication.
- * Business logic is handled by userController.
  */
 
 import express from "express";
-import { signup, signin, getProfile } from "../controllers/userController.js";
+import { signup } from "../controllers/user/signup.js";
+import { signin } from "../controllers/user/signin.js";
+import { getProfile } from "../controllers/user/getProfile.js";
 import {
   validateAuthInput,
   checkUser,
@@ -16,11 +17,6 @@ import { authLimiter } from "../middlewares/rateLimiter.js";
 
 const router = express.Router();
 
-/**
- * @route POST /signup
- * @description Register a new user account
- * @access Public
- */
 router.post(
   "/signup",
   authLimiter,
@@ -28,12 +24,6 @@ router.post(
   checkUser("signup"),
   asyncHandler(signup),
 );
-
-/**
- * @route POST /signin
- * @description Authenticate user and return JWT token
- * @access Public
- */
 router.post(
   "/signin",
   authLimiter,
@@ -41,12 +31,6 @@ router.post(
   checkUser("signin"),
   asyncHandler(signin),
 );
-
-/**
- * @route GET /me
- * @description Get current user's profile information
- * @access Private (requires valid JWT token)
- */
 router.get("/me", verifyToken, asyncHandler(getProfile));
 
 export default router;

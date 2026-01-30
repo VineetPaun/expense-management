@@ -12,11 +12,6 @@ import { logger, dbLogger } from "../middlewares/logger.js";
  * Connect to MongoDB Database
  * @description Establishes connection to MongoDB using the connection URI from environment variables.
  * Uses Winston logger for connection status logging.
- *
- * @async
- * @function connectDB
- * @returns {Promise<void>}
- * @throws {Error} Exits process with code 1 if connection fails
  */
 export const connectDB = async () => {
   try {

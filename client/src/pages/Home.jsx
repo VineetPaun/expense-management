@@ -72,13 +72,13 @@ export default function Home() {
       if (isEditing) {
         await axios.post(
           `http://localhost:3000/account/edit/${currentAccountId}`,
-          { bankName, accountType },
+          { bank_name: bankName, account_type: accountType },
           { headers: { Authorization: `Bearer ${token}` } },
         );
       } else {
         await axios.post(
           "http://localhost:3000/account/add",
-          { bankName, accountType },
+          { bank_name: bankName, account_type: accountType },
           { headers: { Authorization: `Bearer ${token}` } },
         );
       }
@@ -106,9 +106,9 @@ export default function Home() {
   };
 
   const openEditModal = (account) => {
-    setBankName(account.bankName);
-    setAccountType(account.accountType);
-    setCurrentAccountId(account._id);
+    setBankName(account.bank_name);
+    setAccountType(account.account_type);
+    setCurrentAccountId(account.account_id);
     setIsEditing(true);
     setIsOpen(true);
   };
@@ -127,7 +127,8 @@ export default function Home() {
           Authorization: `Bearer ${token}`,
         },
       });
-      setAccounts(response.data.accounts);
+      // Updated to match server response structure
+      setAccounts(response.data.data.accounts);
     } catch (error) {
       console.error("Error fetching account:", error);
     }
@@ -136,7 +137,7 @@ export default function Home() {
   const columns = useMemo(
     () => [
       {
-        accessorKey: "bankName",
+        accessorKey: "bank_name",
         header: ({ column }) => {
           return (
             <Button
@@ -153,24 +154,24 @@ export default function Home() {
         cell: ({ row }) => (
           <div
             className="font-medium text-blue-600 hover:underline cursor-pointer"
-            onClick={() => navigate(`/account/${row.original._id}`)}
+            onClick={() => navigate(`/account/${row.original.account_id}`)}
           >
-            {row.getValue("bankName")}
+            {row.getValue("bank_name")}
           </div>
         ),
       },
       {
-        accessorKey: "accountType",
+        accessorKey: "account_type",
         header: "Account Type",
         cell: ({ row }) => (
-          <div className="capitalize">{row.getValue("accountType")}</div>
+          <div className="capitalize">{row.getValue("account_type")}</div>
         ),
       },
       {
-        accessorKey: "balance",
+        accessorKey: "current_balance",
         header: () => <div className="text-right">Balance</div>,
         cell: ({ row }) => {
-          const amount = parseFloat(row.getValue("balance") || 0);
+          const amount = parseFloat(row.getValue("current_balance") || 0);
           const formatted = new Intl.NumberFormat("en-IN", {
             style: "currency",
             currency: "INR",
@@ -198,7 +199,7 @@ export default function Home() {
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 text-red-500 hover:text-red-600"
-                onClick={() => handleDelete(account._id)}
+                onClick={() => handleDelete(account.account_id)}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -212,13 +213,15 @@ export default function Home() {
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
                   <DropdownMenuItem
-                    onClick={() => navigator.clipboard.writeText(account._id)}
+                    onClick={() =>
+                      navigator.clipboard.writeText(account.account_id)
+                    }
                   >
                     Copy account ID
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    onClick={() => navigate(`/account/${account._id}`)}
+                    onClick={() => navigate(`/account/${account.account_id}`)}
                   >
                     View details
                   </DropdownMenuItem>
@@ -227,7 +230,7 @@ export default function Home() {
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     className="text-red-600"
-                    onClick={() => handleDelete(account._id)}
+                    onClick={() => handleDelete(account.account_id)}
                   >
                     Delete
                   </DropdownMenuItem>
@@ -367,9 +370,9 @@ export default function Home() {
           <div className="flex items-center py-4 gap-4">
             <Input
               placeholder="Filter banks..."
-              value={table.getColumn("bankName")?.getFilterValue() ?? ""}
+              value={table.getColumn("bank_name")?.getFilterValue() ?? ""}
               onChange={(event) =>
-                table.getColumn("bankName")?.setFilterValue(event.target.value)
+                table.getColumn("bank_name")?.setFilterValue(event.target.value)
               }
               className="max-w-sm"
             />
@@ -427,7 +430,7 @@ export default function Home() {
                       key={row.id}
                       data-state={row.getIsSelected() && "selected"}
                       onDoubleClick={() =>
-                        navigate(`/account/${row.original._id}`)
+                        navigate(`/account/${row.original.account_id}`)
                       }
                       className="cursor-default"
                     >

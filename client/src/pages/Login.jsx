@@ -31,7 +31,7 @@ export default function Login() {
   };
 
   const handeSubmit = async () => {
-    setError(""); // Clear previous errors
+    setError("");
     setFieldErrors({});
 
     // Validate with Zod
@@ -41,7 +41,6 @@ export default function Login() {
     });
 
     if (!result.success) {
-      // Extract field-specific errors
       const errors = {};
       result.error.errors.forEach((err) => {
         const field = err.path[0];
@@ -58,10 +57,11 @@ export default function Login() {
         username: userName,
         password,
       });
-      console.log(userName, password);
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("username", res.data.username);
-      localStorage.setItem("userId", res.data.userId);
+      // Updated to match server response structure
+      const { token, userName: name, userId } = res.data.data;
+      localStorage.setItem("token", token);
+      localStorage.setItem("username", name);
+      localStorage.setItem("userId", userId);
       window.location.href = "/";
     } catch (err) {
       if (err.response) {

@@ -18,6 +18,28 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 
+// Transaction categories from server
+const TRANSACTION_CATEGORIES = {
+  income: [
+    "Salary",
+    "Freelance",
+    "Investment",
+    "Gift",
+    "Refund",
+    "Other Income",
+  ],
+  expense: [
+    "Food",
+    "Transport",
+    "Shopping",
+    "Bills",
+    "Entertainment",
+    "Health",
+    "Education",
+    "Other",
+  ],
+};
+
 export const Account = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -26,9 +48,10 @@ export const Account = () => {
   const [sorting, setSorting] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTransaction, setNewTransaction] = useState({
-    amount: "",
-    type: "expense",
-    category: "",
+    transaction_amount: "",
+    transaction_type: "debit",
+    transaction_category: "Food",
+    transaction_description: "",
   });
   const [accountBalance, setAccountBalance] = useState(0);
 
@@ -42,25 +65,11 @@ export const Account = () => {
           },
         },
       );
-      setTransactions(response.data.transactions);
+      // Updated to match server response structure
+      setTransactions(response.data.data.transactions);
+      setAccountBalance(response.data.data.currentBalance);
     } catch (error) {
       console.error("Error fetching transactions:", error);
-    }
-  };
-
-  const getAccountBalance = async () => {
-    try {
-      const response = await axios.get("http://localhost:3000/account", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const account = response.data.accounts.find((acc) => acc._id === id);
-      if (account) {
-        setAccountBalance(account.balance);
-      }
-    } catch (error) {
-      console.error("Error fetching account balance:", error);
     }
   };
 
@@ -72,9 +81,7 @@ export const Account = () => {
         },
         data: { id: transactionId },
       });
-      // Refresh transactions and balance after deletion
       getTransactions();
-      getAccountBalance();
     } catch (error) {
       console.error("Error deleting transaction:", error);
     }
@@ -92,24 +99,34 @@ export const Account = () => {
           },
         },
       );
-      setNewTransaction({ amount: "", type: "expense", category: "" });
+      setNewTransaction({
+        transaction_amount: "",
+        transaction_type: "debit",
+        transaction_category: "Food",
+        transaction_description: "",
+      });
       setShowAddForm(false);
       getTransactions();
-      getAccountBalance();
     } catch (error) {
       console.error("Error adding transaction:", error);
+      alert(error.response?.data?.message || "Error adding transaction");
     }
   };
 
   useEffect(() => {
     getTransactions();
-    getAccountBalance();
   }, [id]);
+
+  // Get available categories based on transaction type
+  const availableCategories =
+    newTransaction.transaction_type === "credit"
+      ? TRANSACTION_CATEGORIES.income
+      : TRANSACTION_CATEGORIES.expense;
 
   const columns = useMemo(
     () => [
       {
-        accessorKey: "date",
+        accessorKey: "transaction_date",
         header: ({ column }) => {
           return (
             <Button
@@ -124,37 +141,48 @@ export const Account = () => {
           );
         },
         cell: ({ row }) => {
-          const date = new Date(row.getValue("date"));
+          const date = new Date(row.getValue("transaction_date"));
           return <div>{date.toLocaleDateString()}</div>;
         },
       },
       {
-        accessorKey: "category",
+        accessorKey: "transaction_category",
         header: "Category",
         cell: ({ row }) => (
-          <div className="capitalize">{row.getValue("category")}</div>
-        ),
-      },
-      {
-        accessorKey: "type",
-        header: "Type",
-        cell: ({ row }) => (
-          <div
-            className={`capitalize font-medium ${
-              row.getValue("type") === "income"
-                ? "text-green-600"
-                : "text-red-600"
-            }`}
-          >
-            {row.getValue("type")}
+          <div className="capitalize">
+            {row.getValue("transaction_category")}
           </div>
         ),
       },
       {
-        accessorKey: "amount",
+        accessorKey: "transaction_description",
+        header: "Description",
+        cell: ({ row }) => (
+          <div className="text-muted-foreground">
+            {row.getValue("transaction_description") || "-"}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "transaction_type",
+        header: "Type",
+        cell: ({ row }) => (
+          <div
+            className={`capitalize font-medium ${
+              row.getValue("transaction_type") === "credit"
+                ? "text-green-600"
+                : "text-red-600"
+            }`}
+          >
+            {row.getValue("transaction_type")}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "transaction_amount",
         header: () => <div className="text-right">Amount</div>,
         cell: ({ row }) => {
-          const amount = parseFloat(row.getValue("amount") || 0);
+          const amount = parseFloat(row.getValue("transaction_amount") || 0);
           const formatted = new Intl.NumberFormat("en-IN", {
             style: "currency",
             currency: "INR",
@@ -163,11 +191,12 @@ export const Account = () => {
           return (
             <div
               className={`text-right font-medium ${
-                row.getValue("type") === "income"
+                row.getValue("transaction_type") === "credit"
                   ? "text-green-600"
                   : "text-red-600"
               }`}
             >
+              {row.getValue("transaction_type") === "credit" ? "+" : "-"}
               {formatted}
             </div>
           );
@@ -182,7 +211,7 @@ export const Account = () => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => deleteTransaction(transaction._id)}
+              onClick={() => deleteTransaction(transaction.transaction_id)}
               className="text-red-600 hover:text-red-800 hover:bg-red-100"
             >
               <Trash2 className="h-4 w-4" />
@@ -239,55 +268,79 @@ export const Account = () => {
         <div className="mb-6 p-4 border rounded-md bg-card">
           <h2 className="text-lg font-semibold mb-4">Add New Transaction</h2>
           <form onSubmit={addTransaction} className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Amount</label>
                 <input
                   type="number"
-                  value={newTransaction.amount}
+                  value={newTransaction.transaction_amount}
                   onChange={(e) =>
                     setNewTransaction({
                       ...newTransaction,
-                      amount: e.target.value,
+                      transaction_amount: e.target.value,
                     })
                   }
                   className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
                   placeholder="Enter amount"
                   required
+                  min="0.01"
+                  step="0.01"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Type</label>
                 <select
-                  value={newTransaction.type}
+                  value={newTransaction.transaction_type}
                   onChange={(e) =>
                     setNewTransaction({
                       ...newTransaction,
-                      type: e.target.value,
+                      transaction_type: e.target.value,
+                      transaction_category:
+                        e.target.value === "credit" ? "Salary" : "Food",
                     })
                   }
                   className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
                 >
-                  <option value="expense">Expense</option>
-                  <option value="income">Income</option>
+                  <option value="debit">Debit (Expense)</option>
+                  <option value="credit">Credit (Income)</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">
                   Category
                 </label>
-                <input
-                  type="text"
-                  value={newTransaction.category}
+                <select
+                  value={newTransaction.transaction_category}
                   onChange={(e) =>
                     setNewTransaction({
                       ...newTransaction,
-                      category: e.target.value,
+                      transaction_category: e.target.value,
                     })
                   }
                   className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
-                  placeholder="Enter category"
-                  required
+                >
+                  {availableCategories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Description
+                </label>
+                <input
+                  type="text"
+                  value={newTransaction.transaction_description}
+                  onChange={(e) =>
+                    setNewTransaction({
+                      ...newTransaction,
+                      transaction_description: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
+                  placeholder="Optional description"
                 />
               </div>
             </div>
