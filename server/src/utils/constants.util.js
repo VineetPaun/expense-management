@@ -9,6 +9,45 @@
  */
 const TRANSACTION_TYPES = ["credit", "debit"];
 
+const SUPPORTED_BANKS = [
+  "HDFC",
+  "SBI",
+  "BOB",
+  "Axis",
+  "ICICI",
+  "Kotak",
+  "PNB",
+  "Other",
+];
+
+const ACCOUNT_TYPES = ["Savings", "Current", "Salary", "Fixed Deposit"];
+
+const TRANSACTION_CATEGORIES = {
+  credit: [
+    "Salary",
+    "Freelance",
+    "Investment",
+    "Refund",
+    "Gift",
+    "Other Income",
+  ],
+  debit: [
+    "Food",
+    "Transport",
+    "Shopping",
+    "Bills",
+    "Entertainment",
+    "Health",
+    "Education",
+    "Other Expense",
+  ],
+};
+
+const ALL_CATEGORIES = [
+  ...TRANSACTION_CATEGORIES.credit,
+  ...TRANSACTION_CATEGORIES.debit,
+];
+
 /**
  * JWT Configuration
  */
@@ -39,4 +78,13 @@ const SORT_FIELDS = {
   ],
 };
 
-export { TRANSACTION_TYPES, JWT_CONFIG, PAGINATION, SORT_FIELDS };
+export {
+  TRANSACTION_TYPES,
+  SUPPORTED_BANKS,
+  ACCOUNT_TYPES,
+  TRANSACTION_CATEGORIES,
+  ALL_CATEGORIES,
+  JWT_CONFIG,
+  PAGINATION,
+  SORT_FIELDS,
+};

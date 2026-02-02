@@ -8,18 +8,7 @@ import { v4 as uuidv4 } from "uuid";
 
 const { Schema } = mongoose;
 
-const SUPPORTED_BANKS = [
-  "HDFC",
-  "SBI",
-  "BOB",
-  "Axis",
-  "ICICI",
-  "Kotak",
-  "PNB",
-  "Other",
-];
-
-const ACCOUNT_TYPES = ["Savings", "Current", "Salary", "Fixed Deposit"];
+import { SUPPORTED_BANKS, ACCOUNT_TYPES } from "../utils/constants.util.js";
 
 const accountSchema = new Schema(
   {

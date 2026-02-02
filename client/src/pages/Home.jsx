@@ -34,6 +34,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+import { SUPPORTED_BANKS, ACCOUNT_TYPES } from "../lib/constants";
 import {
   Table,
   TableBody,
@@ -333,16 +334,7 @@ export default function Home() {
                             value={bankName}
                             onValueChange={setBankName}
                           >
-                            {[
-                              "HDFC",
-                              "SBI",
-                              "BOB",
-                              "Axis",
-                              "ICICI",
-                              "Kotak",
-                              "PNB",
-                              "Other",
-                            ].map((bank) => (
+                            {SUPPORTED_BANKS.map((bank) => (
                               <DropdownMenuRadioItem key={bank} value={bank}>
                                 {bank}
                               </DropdownMenuRadioItem>
@@ -368,12 +360,7 @@ export default function Home() {
                             value={accountType}
                             onValueChange={setAccountType}
                           >
-                            {[
-                              "Savings",
-                              "Current",
-                              "Salary",
-                              "Fixed Deposit",
-                            ].map((type) => (
+                            {ACCOUNT_TYPES.map((type) => (
                               <DropdownMenuRadioItem key={type} value={type}>
                                 {type}
                               </DropdownMenuRadioItem>

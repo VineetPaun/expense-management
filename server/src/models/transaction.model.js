@@ -8,33 +8,11 @@ import { v4 as uuidv4 } from "uuid";
 
 const { Schema } = mongoose;
 
-const TRANSACTION_TYPES = ["credit", "debit"];
-
-const TRANSACTION_CATEGORIES = {
-  credit: [
-    "Salary",
-    "Freelance",
-    "Investment",
-    "Refund",
-    "Gift",
-    "Other Income",
-  ],
-  debit: [
-    "Food",
-    "Transport",
-    "Shopping",
-    "Bills",
-    "Entertainment",
-    "Health",
-    "Education",
-    "Other Expense",
-  ],
-};
-
-const ALL_CATEGORIES = [
-  ...TRANSACTION_CATEGORIES.credit,
-  ...TRANSACTION_CATEGORIES.debit,
-];
+import {
+  TRANSACTION_TYPES,
+  TRANSACTION_CATEGORIES,
+  ALL_CATEGORIES,
+} from "../utils/constants.util.js";
 
 const transactionSchema = new Schema(
   {

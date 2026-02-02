@@ -17,28 +17,9 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+import { TRANSACTION_CATEGORIES } from "../lib/constants";
 
 // Transaction categories from server
-const TRANSACTION_CATEGORIES = {
-  income: [
-    "Salary",
-    "Freelance",
-    "Investment",
-    "Gift",
-    "Refund",
-    "Other Income",
-  ],
-  expense: [
-    "Food",
-    "Transport",
-    "Shopping",
-    "Bills",
-    "Entertainment",
-    "Health",
-    "Education",
-    "Other Expense",
-  ],
-};
 
 export const Account = () => {
   const { id } = useParams();
