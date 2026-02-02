@@ -11,20 +11,17 @@ import { validateAuthInput } from "../middlewares/auth/validate.auth.middleware.
 import { checkUser } from "../middlewares/auth/check.auth.middleware.js";
 import { verifyToken } from "../middlewares/auth/verify.auth.middleware.js";
 import { asyncHandler } from "../middlewares/error/global.error.middleware.js";
-import { authLimiter } from "../middlewares/ratelimit/limiters.ratelimit.middleware.js";
 
 const router = express.Router();
 
 router.post(
   "/signup",
-  authLimiter,
   validateAuthInput,
   checkUser("signup"),
   asyncHandler(signup),
 );
 router.post(
   "/signin",
-  authLimiter,
   validateAuthInput,
   checkUser("signin"),
   asyncHandler(signin),

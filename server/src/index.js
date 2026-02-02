@@ -7,38 +7,26 @@ import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
 import "dotenv/config";
-
-// Import database connection utility
 import { connectDB } from "./config/database.config.js";
-
-// Import route handlers
 import userRouter from "./routes/user.route.js";
 import accountRouter from "./routes/account.route.js";
 import transactionRouter from "./routes/transaction.route.js";
-
-// Import middleware from specific files
 import {
   notFoundHandler,
   globalErrorHandler,
 } from "./middlewares/error/global.error.middleware.js";
-import { generalLimiter } from "./middlewares/ratelimit/limiters.ratelimit.middleware.js";
+
 import { sanitizeInput } from "./middlewares/validator/sanitize.validator.middleware.js";
 import { requestLogger } from "./middlewares/logger/request.logger.middleware.js";
 import { logger } from "./middlewares/logger/main.logger.middleware.js";
 
-// Initialize Express application
 const app = express();
 
-// ============================================
 // Security & Request Headers
-// ============================================
-
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
 
-// ============================================
 // Middleware Configuration
-// ============================================
 
 // 1. Request Logging with Winston
 app.use(
@@ -67,13 +55,7 @@ app.use(express.json({ limit: "10mb" }));
 // 4. Input sanitization
 app.use(sanitizeInput);
 
-// 5. General rate limiting
-app.use(generalLimiter);
-
-// ============================================
 // Health Check Endpoint
-// ============================================
-
 app.get("/health", (req, res) => {
   res.status(200).json({
     success: true,
@@ -84,26 +66,17 @@ app.get("/health", (req, res) => {
   });
 });
 
-// ============================================
 // Database Connection
-// ============================================
-
 connectDB();
 
-// ============================================
 // API Route Definitions
-// ============================================
-
 const apiPrefix = process.env.API_PREFIX || "";
 
 app.use(`${apiPrefix}/`, userRouter);
 app.use(`${apiPrefix}/account`, accountRouter);
 app.use(`${apiPrefix}/account/transaction`, transactionRouter);
 
-// ============================================
 // Development/Testing Routes
-// ============================================
-
 if (process.env.NODE_ENV !== "production") {
   app.delete("/drop", async (req, res, next) => {
     try {
@@ -116,17 +89,11 @@ if (process.env.NODE_ENV !== "production") {
   });
 }
 
-// ============================================
 // Error Handling
-// ============================================
-
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
 
-// ============================================
 // Graceful Shutdown
-// ============================================
-
 const gracefulShutdown = async (signal) => {
   logger.info(`Received ${signal}. Starting graceful shutdown...`);
 
@@ -155,10 +122,7 @@ process.on("uncaughtException", (error) => {
   process.exit(1);
 });
 
-// ============================================
 // Server Initialization
-// ============================================
-
 const port = process.env.PORT || 3000;
 
 const server = app.listen(port, () => {
@@ -172,8 +136,8 @@ const server = app.listen(port, () => {
 ╔════════════════════════════════════════════╗
 ║    Expense Management API Server           ║
 ╠════════════════════════════════════════════╣
-║  Port:        ${port}                          ║
-║  Environment: ${(process.env.NODE_ENV || "development").padEnd(15)}          ║
+║  Port:        ${port}                         ║
+║  Environment: ${(process.env.NODE_ENV || "development").padEnd(15)}              ║
 ║  Status:      Running ✓                    ║
 ╚════════════════════════════════════════════╝
   `);

@@ -4,7 +4,7 @@
  */
 
 import jwt from "jsonwebtoken";
-import { JWT_CONFIG } from "../../utils/constants.js";
+import { JWT_CONFIG } from "../../utils/constants.util.js";
 
 /**
  * Verify JWT Token
