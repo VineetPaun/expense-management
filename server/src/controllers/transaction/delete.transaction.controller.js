@@ -3,13 +3,13 @@
  * @description Deletes a transaction and reverses its effect on account balance.
  */
 
-import { Transaction } from "../../models/Transaction.js";
-import { Account } from "../../models/Account.js";
+import { Transaction } from "../../models/transaction.model.js";
+import { Account } from "../../models/account.model.js";
 import { ApiError } from "../../middlewares/error/api.error.middleware.js";
 import {
   updateAccountBalance,
   calculateNewBalance,
-} from "../../services/accountService.js";
+} from "../../services/account.service.js";
 
 const deleteTransaction = async (req, res) => {
   const { id } = req.body;

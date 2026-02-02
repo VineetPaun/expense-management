@@ -7,8 +7,8 @@ import {
   Transaction,
   TRANSACTION_CATEGORIES,
   ALL_CATEGORIES,
-} from "../../models/Transaction.js";
-import { findAccountById } from "../../services/accountService.js";
+} from "../../models/transaction.model.js";
+import { findAccountById } from "../../services/account.service.js";
 import {
   parsePagination,
   buildPaginationResponse,
@@ -16,12 +16,12 @@ import {
   buildSearchFilter,
   buildDateRangeFilter,
   buildAmountRangeFilter,
-} from "../../utils/queryUtils.js";
+} from "../../utils/query.util.js";
 import {
   TRANSACTION_TYPES,
   SORT_FIELDS,
   PAGINATION,
-} from "../../utils/constants.js";
+} from "../../utils/constants.util.js";
 
 const getTransactionsByAccount = async (req, res) => {
   const { id } = req.params;

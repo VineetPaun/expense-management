@@ -7,9 +7,6 @@ import mongoose from "mongoose";
 import { logger } from "../middlewares/logger/main.logger.middleware.js";
 import { dbLogger } from "../middlewares/logger/special.logger.middleware.js";
 
-/**
- * Connect to MongoDB Database
- */
 export const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGODB_URI);

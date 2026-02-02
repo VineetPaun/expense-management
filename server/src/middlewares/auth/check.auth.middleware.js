@@ -3,16 +3,13 @@
  * @description Checks user existence for signup/signin flows.
  */
 
-import { User } from "../../models/User.js";
+import { User } from "../../models/user.model.js";
 
 /**
  * Check User Existence
  * @description Higher-order middleware factory that checks user existence based on mode.
  * - For signup: Returns error if user already exists (409 Conflict)
  * - For signin: Returns error if user doesn't exist (404 Not Found)
- *
- * @param {string} mode - Authentication mode ('signup' or 'signin')
- * @returns {Function} Express middleware function
  */
 const checkUser = (mode) => async (req, res, next) => {
   try {

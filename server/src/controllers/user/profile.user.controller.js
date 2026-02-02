@@ -3,7 +3,7 @@
  * @description Retrieves current user's profile information.
  */
 
-import { User } from "../../models/User.js";
+import { User } from "../../models/user.model.js";
 import { ApiError } from "../../middlewares/error/api.error.middleware.js";
 
 const getProfile = async (req, res) => {

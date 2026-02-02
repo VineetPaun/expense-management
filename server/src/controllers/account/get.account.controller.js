@@ -7,15 +7,15 @@ import {
   Account,
   SUPPORTED_BANKS,
   ACCOUNT_TYPES,
-} from "../../models/Account.js";
+} from "../../models/account.model.js";
 import { ApiError } from "../../middlewares/error/api.error.middleware.js";
 import {
   parsePagination,
   buildPaginationResponse,
   buildSortOptions,
   buildSearchFilter,
-} from "../../utils/queryUtils.js";
-import { SORT_FIELDS, PAGINATION } from "../../utils/constants.js";
+} from "../../utils/query.util.js";
+import { SORT_FIELDS, PAGINATION } from "../../utils/constants.util.js";
 
 const getAccountById = async (req, res) => {
   const { id } = req.params;

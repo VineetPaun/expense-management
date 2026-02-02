@@ -1,8 +1,6 @@
 /**
  * @fileoverview Transaction Model Definition
  * @description Defines the MongoDB schema for financial transactions.
- * Uses UUID for unique identification. Tracks balance before and after
- * each transaction like banks do for statement generation.
  */
 
 import mongoose from "mongoose";
@@ -10,16 +8,8 @@ import { v4 as uuidv4 } from "uuid";
 
 const { Schema } = mongoose;
 
-/**
- * Transaction Types
- * @constant {Array<String>}
- */
 const TRANSACTION_TYPES = ["credit", "debit"];
 
-/**
- * Transaction Categories
- * @constant {Object} Categories grouped by transaction type
- */
 const TRANSACTION_CATEGORIES = {
   credit: [
     "Salary",
@@ -41,34 +31,11 @@ const TRANSACTION_CATEGORIES = {
   ],
 };
 
-/**
- * All Categories (flattened)
- * @constant {Array<String>}
- */
 const ALL_CATEGORIES = [
   ...TRANSACTION_CATEGORIES.credit,
   ...TRANSACTION_CATEGORIES.debit,
 ];
 
-/**
- * Transaction Schema
- * @description Represents a financial transaction (credit or debit).
- * Stores balance before and after transaction for bank statement-like tracking.
- *
- * @property {String} transaction_id - UUID v4 unique identifier (auto-generated)
- * @property {String} user_id - UUID reference to the User who made this transaction (required)
- * @property {String} account_id - UUID reference to the Account this transaction belongs to (required)
- * @property {Number} transaction_amount - Transaction amount in currency units (required, must be positive)
- * @property {String} transaction_type - Transaction type (required: credit or debit)
- * @property {String} transaction_category - Category of the transaction for classification (required)
- * @property {String} transaction_description - Optional description or note for the transaction
- * @property {Number} opening_balance - Account balance BEFORE this transaction was applied
- * @property {Number} closing_balance - Account balance AFTER this transaction was applied
- * @property {Date} transaction_date - Date of the transaction (default: current date)
- * @property {String} reference_number - Optional reference/cheque number
- * @property {Date} created_at - Timestamp when transaction was created (auto-generated)
- * @property {Date} updated_at - Timestamp when transaction was last updated (auto-generated)
- */
 const transactionSchema = new Schema(
   {
     transaction_id: {

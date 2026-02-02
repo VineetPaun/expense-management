@@ -3,7 +3,7 @@
  * @description Soft deletes an account by setting is_active to false.
  */
 
-import { Account } from "../../models/Account.js";
+import { Account } from "../../models/account.model.js";
 import { ApiError } from "../../middlewares/error/api.error.middleware.js";
 
 const deleteAccount = async (req, res) => {

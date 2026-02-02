@@ -12,9 +12,9 @@ import "dotenv/config";
 import { connectDB } from "./config/database.config.js";
 
 // Import route handlers
-import userRouter from "./routes/user.js";
-import accountRouter from "./routes/account.js";
-import transactionRouter from "./routes/transaction.js";
+import userRouter from "./routes/user.route.js";
+import accountRouter from "./routes/account.route.js";
+import transactionRouter from "./routes/transaction.route.js";
 
 // Import middleware from specific files
 import {

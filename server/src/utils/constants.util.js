@@ -1,7 +1,6 @@
 /**
  * @fileoverview Constants
  * @description Centralized constants used across the application.
- * Single source of truth for enums and configuration values.
  */
 
 /**

@@ -3,15 +3,15 @@
  * @description Creates a new transaction with balance tracking.
  */
 
-import { Transaction, ALL_CATEGORIES } from "../../models/Transaction.js";
+import { Transaction, ALL_CATEGORIES } from "../../models/transaction.model.js";
 import { ApiError } from "../../middlewares/error/api.error.middleware.js";
 import { logger } from "../../middlewares/logger/main.logger.middleware.js";
 import {
   findAccountById,
   updateAccountBalance,
   calculateNewBalance,
-} from "../../services/accountService.js";
-import { TRANSACTION_TYPES } from "../../utils/constants.js";
+} from "../../services/account.service.js";
+import { TRANSACTION_TYPES } from "../../utils/constants.util.js";
 
 const createTransaction = async (req, res) => {
   const userId = req.user.user_id;

@@ -4,7 +4,7 @@
  */
 
 import bcrypt from "bcrypt";
-import { User } from "../../models/User.js";
+import { User } from "../../models/user.model.js";
 import { ApiError } from "../../middlewares/error/api.error.middleware.js";
 
 const signup = async (req, res) => {

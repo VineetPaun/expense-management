@@ -6,9 +6,6 @@
 /**
  * Require Role
  * @description Middleware factory to check if user has required role.
- *
- * @param {string[]} allowedRoles - Array of allowed roles
- * @returns {Function} Express middleware function
  */
 const requireRole = (allowedRoles) => (req, res, next) => {
   if (!req.user) {

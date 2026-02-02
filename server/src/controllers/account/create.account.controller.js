@@ -7,7 +7,7 @@ import {
   Account,
   SUPPORTED_BANKS,
   ACCOUNT_TYPES,
-} from "../../models/Account.js";
+} from "../../models/account.model.js";
 import { ApiError } from "../../middlewares/error/api.error.middleware.js";
 
 const createAccount = async (req, res) => {

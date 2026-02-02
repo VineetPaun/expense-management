@@ -3,17 +3,9 @@
  * @description Shared account-related operations used across controllers.
  */
 
-import { Account } from "../models/Account.js";
+import { Account } from "../models/account.model.js";
 import { ApiError } from "../middlewares/error/api.error.middleware.js";
 
-/**
- * Find Account By ID
- * @description Finds an active account by account_id and user_id
- * @param {string} accountId - Account UUID
- * @param {string} userId - User UUID
- * @param {boolean} throwIfNotFound - Whether to throw error if not found
- * @returns {Promise<Object|null>} Account document or null
- */
 const findAccountById = async (accountId, userId, throwIfNotFound = true) => {
   const account = await Account.findOne({
     account_id: accountId,
@@ -28,28 +20,12 @@ const findAccountById = async (accountId, userId, throwIfNotFound = true) => {
   return account;
 };
 
-/**
- * Update Account Balance
- * @description Updates account balance and saves
- * @param {Object} account - Account document
- * @param {number} newBalance - New balance value
- * @returns {Promise<Object>} Updated account
- */
 const updateAccountBalance = async (account, newBalance) => {
   account.current_balance = newBalance;
   await account.save();
   return account;
 };
 
-/**
- * Calculate New Balance
- * @description Calculates new balance based on transaction type
- * @param {number} currentBalance - Current account balance
- * @param {number} amount - Transaction amount
- * @param {string} type - Transaction type ('credit' or 'debit')
- * @returns {number} New balance
- * @throws {ApiError} If insufficient balance for debit
- */
 const calculateNewBalance = (currentBalance, amount, type) => {
   if (type === "credit") {
     return currentBalance + amount;
