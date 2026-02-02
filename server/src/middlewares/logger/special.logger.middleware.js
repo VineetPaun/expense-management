@@ -1,42 +1,23 @@
 /**
  * @fileoverview Specialized Loggers
- * @description HTTP, Database, and Auth loggers.
+ * @description Simple loggers for Database and Auth events.
  */
 
 import { logger } from "./main.logger.middleware.js";
 
 /**
- * HTTP Logger
- */
-const httpLogger = {
-  request: (req, message = "Incoming request") => {
-    logger.http(message, {
-      requestId: req.requestId,
-      method: req.method,
-      url: req.originalUrl,
-    });
-  },
-  response: (req, res, message = "Response sent") => {
-    logger.http(message, {
-      requestId: req.requestId,
-      statusCode: res.statusCode,
-    });
-  },
-};
-
-/**
  * Database Logger
+ * @description Logs database connection events.
  */
 const dbLogger = {
   connect: (dbName) => logger.info(`Connected to database: ${dbName}`),
   disconnect: () => logger.info("Disconnected from database"),
   error: (error) => logger.error("Database error", { error: error.message }),
-  query: (query, duration) =>
-    logger.debug(`Query executed in ${duration}ms`, { query }),
 };
 
 /**
  * Auth Logger
+ * @description Logs authentication events.
  */
 const authLogger = {
   login: (userId, success = true) => {
@@ -47,7 +28,6 @@ const authLogger = {
     }
   },
   logout: (userId) => logger.info(`User logged out: ${userId}`),
-  tokenExpired: (userId) => logger.warn(`Token expired for user: ${userId}`),
 };
 
-export { httpLogger, dbLogger, authLogger };
+export { dbLogger, authLogger };

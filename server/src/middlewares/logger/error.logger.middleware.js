@@ -1,29 +1,27 @@
 /**
- * @fileoverview Error Logger Middleware
- * @description Logs errors with full stack trace and context.
+ * @fileoverview Error Logger
+ * @description Logs errors with context using Winston.
  */
 
 import { logger } from "./main.logger.middleware.js";
 
 /**
- * Error Logger
- * @description Logs errors with full stack trace and context
+ * Log Error
+ * @description Logs errors with context information.
  */
 const logError = (error, req = null) => {
-  const errorData = {
+  const errorInfo = {
     message: error.message,
-    stack: error.stack,
     name: error.name,
   };
 
   if (req) {
-    errorData.requestId = req.requestId;
-    errorData.method = req.method;
-    errorData.url = req.originalUrl;
-    errorData.userId = req.user?.user_id;
+    errorInfo.method = req.method;
+    errorInfo.url = req.originalUrl;
+    errorInfo.requestId = req.requestId;
   }
 
-  logger.error(error.message, errorData);
+  logger.error(error.message, errorInfo);
 };
 
 export { logError };

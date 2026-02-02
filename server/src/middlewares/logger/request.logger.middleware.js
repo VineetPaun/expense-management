@@ -1,57 +1,25 @@
 /**
  * @fileoverview Request Logger Middleware
- * @description Express middleware for logging HTTP requests.
+ * @description Logs HTTP requests using Winston.
  */
 
 import { logger } from "./main.logger.middleware.js";
 
-/**
- * Generate Request ID
- * @returns {string} Unique request identifier
- */
+
+// Generate Request ID
 const generateRequestId = () => {
-  return `req_${Date.now().toString(36)}_${Math.random().toString(36).substr(2, 9)}`;
-};
-
-/**
- * Mask Sensitive Data
- * @param {Object} obj - Object to mask
- * @returns {Object} Masked object
- */
-const maskSensitiveData = (obj) => {
-  if (!obj || typeof obj !== "object") return obj;
-
-  const sensitiveFields = [
-    "password",
-    "passwordHash",
-    "token",
-    "authorization",
-    "secret",
-    "apiKey",
-  ];
-  const masked = { ...obj };
-
-  for (const field of sensitiveFields) {
-    if (masked[field]) {
-      masked[field] = "***MASKED***";
-    }
-  }
-
-  return masked;
+  return `req_${Date.now().toString(36)}`;
 };
 
 /**
  * Request Logger Middleware
- * @description Express middleware for logging HTTP requests
+ * @description Logs incoming requests and their responses.
  */
 const requestLogger = (options = {}) => {
-  const {
-    logBody = false,
-    logQuery = false,
-    skipPaths = ["/health", "/favicon.ico"],
-  } = options;
+  const { skipPaths = ["/health", "/favicon.ico"] } = options;
 
   return (req, res, next) => {
+    // Skip logging for certain paths
     if (skipPaths.some((p) => req.path.startsWith(p))) {
       return next();
     }
@@ -59,36 +27,24 @@ const requestLogger = (options = {}) => {
     const requestId = generateRequestId();
     const startTime = Date.now();
 
+    // Attach request ID to request object
     req.requestId = requestId;
 
-    const logData = {
+    // Log incoming request
+    logger.http(`→ ${req.method} ${req.originalUrl}`, {
       requestId,
-      method: req.method,
-      url: req.originalUrl,
-      ip: req.ip || req.connection.remoteAddress,
-      userAgent: req.get("user-agent"),
-    };
+      ip: req.ip,
+    });
 
-    if (logBody && req.body && Object.keys(req.body).length > 0) {
-      logData.body = maskSensitiveData(req.body);
-    }
-
-    if (logQuery && req.query && Object.keys(req.query).length > 0) {
-      logData.query = req.query;
-    }
-
-    logger.info(`→ ${req.method} ${req.originalUrl}`, logData);
-
+    // Log response when finished
     res.on("finish", () => {
       const duration = Date.now() - startTime;
-      const level = res.statusCode >= 400 ? "warn" : "info";
+      const logMethod = res.statusCode >= 400 ? "warn" : "info";
 
-      logger[level](
+      logger[logMethod](
         `← ${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`,
         {
           requestId,
-          statusCode: res.statusCode,
-          duration: `${duration}ms`,
         },
       );
     });
@@ -97,4 +53,4 @@ const requestLogger = (options = {}) => {
   };
 };
 
-export { requestLogger, generateRequestId, maskSensitiveData };
+export { requestLogger, generateRequestId };

@@ -1,20 +1,21 @@
 /**
  * @fileoverview Sanitize Input Middleware
- * @description Sanitizes input to prevent XSS attacks.
+ * @description Sanitizes input using validator.js to prevent XSS attacks.
  */
+
+import validator from "validator";
 
 /**
  * Sanitize Input
  * @description Middleware to sanitize all input to prevent XSS attacks.
+ * Uses validator.escape() to replace <, >, &, ', " and / with HTML entities.
  */
 const sanitizeInput = (req, res, next) => {
-  const sanitizeString = (str) => {
-    if (typeof str !== "string") return str;
-    return str
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#x27;");
+  const sanitizeValue = (value) => {
+    if (typeof value === "string") {
+      return validator.escape(value);
+    }
+    return value;
   };
 
   const sanitizeObject = (obj) => {
@@ -22,7 +23,7 @@ const sanitizeInput = (req, res, next) => {
 
     for (const key in obj) {
       if (typeof obj[key] === "string") {
-        obj[key] = sanitizeString(obj[key]);
+        obj[key] = sanitizeValue(obj[key]);
       } else if (typeof obj[key] === "object") {
         sanitizeObject(obj[key]);
       }
@@ -32,6 +33,7 @@ const sanitizeInput = (req, res, next) => {
 
   if (req.body) sanitizeObject(req.body);
   if (req.params) sanitizeObject(req.params);
+  if (req.query) sanitizeObject(req.query);
 
   next();
 };

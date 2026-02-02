@@ -1,7 +1,9 @@
 /**
  * @fileoverview Validate Params Middleware
- * @description Validates URL parameters.
+ * @description Validates URL parameters using validator.js
  */
+
+import validator from "validator";
 
 /**
  * Validate URL Parameters
@@ -13,16 +15,30 @@ const validateParams = (schema) => (req, res, next) => {
   for (const [field, rules] of Object.entries(schema)) {
     const value = req.params[field];
 
+    // Check if required
     if (rules.required && !value) {
       errors.push({ field, message: `Parameter ${field} is required` });
       continue;
     }
 
+    if (!value) continue;
+
+    // Validate based on type using validator.js
     if (rules.type === "uuid") {
-      const uuidRegex =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-      if (!uuidRegex.test(value)) {
+      if (!validator.isUUID(value, 4)) {
         errors.push({ field, message: `${field} must be a valid UUID` });
+      }
+    }
+
+    if (rules.type === "mongoId") {
+      if (!validator.isMongoId(value)) {
+        errors.push({ field, message: `${field} must be a valid MongoDB ID` });
+      }
+    }
+
+    if (rules.type === "numeric") {
+      if (!validator.isNumeric(value)) {
+        errors.push({ field, message: `${field} must be numeric` });
       }
     }
   }
