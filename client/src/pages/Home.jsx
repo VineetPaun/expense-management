@@ -65,6 +65,12 @@ export default function Home() {
   const [columnFilters, setColumnFilters] = useState([]);
   const [columnVisibility, setColumnVisibility] = useState({});
   const [rowSelection, setRowSelection] = useState({});
+  // Server-side pagination state
+  const [pagination, setPagination] = useState({
+    pageIndex: 0,
+    pageSize: 10,
+  });
+  const [rowCount, setRowCount] = useState(0);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -85,7 +91,7 @@ export default function Home() {
       setIsOpen(false);
       setIsEditing(false);
       setCurrentAccountId(null);
-      getAccounts();
+      getAccounts(pagination.pageIndex, pagination.pageSize);
     } catch (error) {
       console.error("Error saving account:", error);
     }
@@ -99,7 +105,7 @@ export default function Home() {
         {},
         { headers: { Authorization: `Bearer ${token}` } },
       );
-      getAccounts();
+      getAccounts(pagination.pageIndex, pagination.pageSize);
     } catch (error) {
       console.error("Error deleting account:", error);
     }
@@ -120,15 +126,20 @@ export default function Home() {
     setIsOpen(true);
   };
 
-  const getAccounts = async () => {
+  const getAccounts = async (pageIndex = 0, pageSize = 10) => {
     try {
-      const response = await axios.get("http://localhost:3000/account", {
-        headers: {
-          Authorization: `Bearer ${token}`,
+      // Backend expects 1-based page index
+      const page = pageIndex + 1;
+      const response = await axios.get(
+        `http://localhost:3000/account?page=${page}&limit=${pageSize}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
-      // Updated to match server response structure
+      );
       setAccounts(response.data.data.accounts);
+      setRowCount(response.data.data.pagination.totalCount);
     } catch (error) {
       console.error("Error fetching account:", error);
     }
@@ -247,27 +258,31 @@ export default function Home() {
   const table = useReactTable({
     data: accounts,
     columns,
-    onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    onColumnVisibilityChange: setColumnVisibility,
-    onRowSelectionChange: setRowSelection,
+    pageCount: Math.ceil(rowCount / pagination.pageSize),
     state: {
       sorting,
       columnFilters,
       columnVisibility,
       rowSelection,
+      pagination,
     },
+    onPaginationChange: setPagination,
+    manualPagination: true,
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(), // Keeping this is fine, but manualPagination overrides it logic-wise for data slicing
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    onColumnVisibilityChange: setColumnVisibility,
+    onRowSelectionChange: setRowSelection,
   });
 
   useEffect(() => {
     if (token) {
-      getAccounts();
+      getAccounts(pagination.pageIndex, pagination.pageSize);
     }
-  }, [token]);
+  }, [token, pagination.pageIndex, pagination.pageSize]);
   return (
     <div className="flex flex-col items-center justify-center p-8 text-center">
       {!name && (
@@ -318,7 +333,16 @@ export default function Home() {
                             value={bankName}
                             onValueChange={setBankName}
                           >
-                            {["HDFC", "SBI", "BOB", "Axis"].map((bank) => (
+                            {[
+                              "HDFC",
+                              "SBI",
+                              "BOB",
+                              "Axis",
+                              "ICICI",
+                              "Kotak",
+                              "PNB",
+                              "Other",
+                            ].map((bank) => (
                               <DropdownMenuRadioItem key={bank} value={bank}>
                                 {bank}
                               </DropdownMenuRadioItem>
@@ -344,7 +368,12 @@ export default function Home() {
                             value={accountType}
                             onValueChange={setAccountType}
                           >
-                            {["Savings", "Current"].map((type) => (
+                            {[
+                              "Savings",
+                              "Current",
+                              "Salary",
+                              "Fixed Deposit",
+                            ].map((type) => (
                               <DropdownMenuRadioItem key={type} value={type}>
                                 {type}
                               </DropdownMenuRadioItem>

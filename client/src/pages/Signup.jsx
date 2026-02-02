@@ -15,9 +15,7 @@ const signupSchema = z.object({
   password: z
     .string()
     .min(1, "Password is required")
-    .min(6, "Password must be at least 6 characters")
-    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-    .regex(/[0-9]/, "Password must contain at least one number"),
+    .min(6, "Password must be at least 6 characters"),
 });
 
 // Helper to check password requirements
@@ -72,10 +70,30 @@ export default function Signup() {
       console.log(userName, password);
       navigate("/login");
     } catch (err) {
-      if (err.response && err.response.status === 409) {
-        setError("User already exists. Please try a different name.");
+      if (err.response) {
+        // Handle validation errors from backend
+        if (err.response.data && err.response.data.errors) {
+          const backendErrors = {};
+          err.response.data.errors.forEach((error) => {
+            if (error.field) {
+              backendErrors[error.field] = error.message;
+            }
+          });
+          // If we have field-specific errors, set them
+          if (Object.keys(backendErrors).length > 0) {
+            setFieldErrors(backendErrors);
+          }
+        }
+
+        if (err.response.status === 409) {
+          setError("User already exists. Please try a different name.");
+        } else {
+          setError(
+            err.response.data.message || "An error occurred during signup.",
+          );
+        }
       } else {
-        setError("An error occurred. Please try again later.");
+        setError("Network error. Please try again later.");
       }
       console.error(err);
     }
@@ -136,40 +154,6 @@ export default function Signup() {
               </p>
             )}
             {/* Password requirements checklist */}
-            {password.length > 0 && (
-              <div className="mt-2 space-y-1 text-sm">
-                <p
-                  className={`flex items-center gap-1 ${
-                    getPasswordRequirements(password).minLength
-                      ? "text-green-600"
-                      : "text-gray-500"
-                  }`}
-                >
-                  {getPasswordRequirements(password).minLength ? "✓" : "○"} At
-                  least 6 characters
-                </p>
-                <p
-                  className={`flex items-center gap-1 ${
-                    getPasswordRequirements(password).hasUppercase
-                      ? "text-green-600"
-                      : "text-gray-500"
-                  }`}
-                >
-                  {getPasswordRequirements(password).hasUppercase ? "✓" : "○"}{" "}
-                  Contains an uppercase letter
-                </p>
-                <p
-                  className={`flex items-center gap-1 ${
-                    getPasswordRequirements(password).hasNumber
-                      ? "text-green-600"
-                      : "text-gray-500"
-                  }`}
-                >
-                  {getPasswordRequirements(password).hasNumber ? "✓" : "○"}{" "}
-                  Contains a number
-                </p>
-              </div>
-            )}
           </Field>
 
           {error && (

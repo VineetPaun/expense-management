@@ -65,6 +65,19 @@ export default function Login() {
       window.location.href = "/";
     } catch (err) {
       if (err.response) {
+        // Handle validation errors from backend
+        if (err.response.data && err.response.data.errors) {
+          const backendErrors = {};
+          err.response.data.errors.forEach((error) => {
+            if (error.field) {
+              backendErrors[error.field] = error.message;
+            }
+          });
+          if (Object.keys(backendErrors).length > 0) {
+            setFieldErrors(backendErrors);
+          }
+        }
+
         if (err.response.status === 404) {
           setError("User not found.");
         } else if (err.response.status === 401) {

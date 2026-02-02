@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, ArrowUpDown, Trash2, Plus } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, Trash2, Plus, Pencil } from "lucide-react";
 import {
   flexRender,
   getCoreRowModel,
@@ -36,7 +36,7 @@ const TRANSACTION_CATEGORIES = {
     "Entertainment",
     "Health",
     "Education",
-    "Other",
+    "Other Expense",
   ],
 };
 
@@ -54,11 +54,18 @@ export const Account = () => {
     transaction_description: "",
   });
   const [accountBalance, setAccountBalance] = useState(0);
+  const [pagination, setPagination] = useState({
+    pageIndex: 0,
+    pageSize: 10,
+  });
+  const [rowCount, setRowCount] = useState(0);
+  const [editingTransactionId, setEditingTransactionId] = useState(null);
 
-  const getTransactions = async () => {
+  const getTransactions = async (pageIndex = 0, pageSize = 10) => {
     try {
+      const page = pageIndex + 1;
       const response = await axios.get(
-        `http://localhost:3000/account/transaction/${id}`,
+        `http://localhost:3000/account/transaction/${id}?page=${page}&limit=${pageSize}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -68,6 +75,7 @@ export const Account = () => {
       // Updated to match server response structure
       setTransactions(response.data.data.transactions);
       setAccountBalance(response.data.data.currentBalance);
+      setRowCount(response.data.data.pagination.totalCount);
     } catch (error) {
       console.error("Error fetching transactions:", error);
     }
@@ -81,7 +89,7 @@ export const Account = () => {
         },
         data: { id: transactionId },
       });
-      getTransactions();
+      getTransactions(pagination.pageIndex, pagination.pageSize);
     } catch (error) {
       console.error("Error deleting transaction:", error);
     }
@@ -90,15 +98,28 @@ export const Account = () => {
   const addTransaction = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(
-        `http://localhost:3000/account/transaction/add/${id}`,
-        newTransaction,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
+      if (editingTransactionId) {
+        await axios.post(
+          `http://localhost:3000/account/transaction/edit/${editingTransactionId}`,
+          newTransaction,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           },
-        },
-      );
+        );
+      } else {
+        await axios.post(
+          `http://localhost:3000/account/transaction/add/${id}`,
+          newTransaction,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+      }
+
       setNewTransaction({
         transaction_amount: "",
         transaction_type: "debit",
@@ -106,16 +127,28 @@ export const Account = () => {
         transaction_description: "",
       });
       setShowAddForm(false);
-      getTransactions();
+      setEditingTransactionId(null);
+      getTransactions(pagination.pageIndex, pagination.pageSize);
     } catch (error) {
-      console.error("Error adding transaction:", error);
-      alert(error.response?.data?.message || "Error adding transaction");
+      console.error("Error saving transaction:", error);
+      alert(error.response?.data?.message || "Error saving transaction");
     }
   };
 
+  const handleEdit = (transaction) => {
+    setNewTransaction({
+      transaction_amount: transaction.transaction_amount,
+      transaction_type: transaction.transaction_type,
+      transaction_category: transaction.transaction_category,
+      transaction_description: transaction.transaction_description || "",
+    });
+    setEditingTransactionId(transaction.transaction_id);
+    setShowAddForm(true);
+  };
+
   useEffect(() => {
-    getTransactions();
-  }, [id]);
+    getTransactions(pagination.pageIndex, pagination.pageSize);
+  }, [id, pagination.pageIndex, pagination.pageSize]);
 
   // Get available categories based on transaction type
   const availableCategories =
@@ -208,14 +241,24 @@ export const Account = () => {
         cell: ({ row }) => {
           const transaction = row.original;
           return (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => deleteTransaction(transaction.transaction_id)}
-              className="text-red-600 hover:text-red-800 hover:bg-red-100"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleEdit(transaction)}
+                className="text-blue-600 hover:text-blue-800 hover:bg-blue-100"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => deleteTransaction(transaction.transaction_id)}
+                className="text-red-600 hover:text-red-800 hover:bg-red-100"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
           );
         },
       },
@@ -226,12 +269,16 @@ export const Account = () => {
   const table = useReactTable({
     data: transactions,
     columns,
+    pageCount: Math.ceil(rowCount / pagination.pageSize),
+    state: {
+      sorting,
+      pagination,
+    },
+    onPaginationChange: setPagination,
+    manualPagination: true,
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    state: {
-      sorting,
-    },
   });
 
   return (
@@ -266,7 +313,9 @@ export const Account = () => {
 
       {showAddForm && (
         <div className="mb-6 p-4 border rounded-md bg-card">
-          <h2 className="text-lg font-semibold mb-4">Add New Transaction</h2>
+          <h2 className="text-lg font-semibold mb-4">
+            {editingTransactionId ? "Edit Transaction" : "Add New Transaction"}
+          </h2>
           <form onSubmit={addTransaction} className="space-y-4">
             <div className="grid grid-cols-4 gap-4">
               <div>
@@ -345,7 +394,11 @@ export const Account = () => {
               </div>
             </div>
             <div className="flex gap-2">
-              <Button type="submit">Add Transaction</Button>
+              <Button type="submit">
+                {editingTransactionId
+                  ? "Update Transaction"
+                  : "Add Transaction"}
+              </Button>
               <Button
                 type="button"
                 variant="outline"
@@ -404,6 +457,25 @@ export const Account = () => {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="flex items-center justify-end space-x-2 py-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => table.previousPage()}
+          disabled={!table.getCanPreviousPage()}
+        >
+          Previous
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => table.nextPage()}
+          disabled={!table.getCanNextPage()}
+        >
+          Next
+        </Button>
       </div>
     </div>
   );

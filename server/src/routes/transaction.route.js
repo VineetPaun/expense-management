@@ -5,6 +5,7 @@
 
 import express from "express";
 import { createTransaction } from "../controllers/transaction/create.transaction.controller.js";
+import { updateTransaction } from "../controllers/transaction/update.transaction.controller.js";
 import { deleteTransaction } from "../controllers/transaction/delete.transaction.controller.js";
 import {
   getTransactionsByAccount,
@@ -28,6 +29,12 @@ router.get(
   verifyToken,
   validateParams({ id: { required: true, type: "uuid" } }),
   asyncHandler(getTransactionsByAccount),
+);
+router.post(
+  "/edit/:id",
+  verifyToken,
+  validateParams({ id: { required: true, type: "uuid" } }),
+  asyncHandler(updateTransaction),
 );
 router.get("/categories/list", verifyToken, asyncHandler(getCategories));
 
