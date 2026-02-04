@@ -6,8 +6,8 @@
 import rateLimit from "express-rate-limit";
 
 const rateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
+  windowMs: 1 * 60 * 1000,
+  max: 10,
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => req.path === "/health" || req.path === "/favicon.ico",

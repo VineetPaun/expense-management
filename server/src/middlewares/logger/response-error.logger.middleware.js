@@ -26,9 +26,27 @@ const responseErrorLogger = () => (req, res, next) => {
       return;
     }
 
-    const responseError = new Error(
-      responseBody?.message || "Request failed",
-    );
+    const resolveMessage = (body) => {
+      if (!body) return null;
+      if (typeof body === "string") return body;
+      if (Buffer.isBuffer(body)) return body.toString("utf8");
+      if (typeof body === "object") {
+        if (body.message) return body.message;
+        if (body.error) return body.error;
+        if (Array.isArray(body.errors) && body.errors.length > 0) {
+          const firstError = body.errors[0];
+          return firstError?.message || firstError;
+        }
+      }
+      return null;
+    };
+
+    const message =
+      resolveMessage(responseBody) ||
+      res.statusMessage ||
+      `Request failed (HTTP ${res.statusCode})`;
+
+    const responseError = new Error(message);
     responseError.name = "ResponseError";
     responseError.statusCode = res.statusCode;
 
