@@ -23,6 +23,7 @@ const notFoundHandler = (req, res, next) => {
  */
 const globalErrorHandler = (err, req, res, next) => {
   logError(err, req);
+  res.locals.errorLogged = true;
 
   if (err.name === "ValidationError") {
     const errors = Object.values(err.errors).map((e) => ({
@@ -95,7 +96,11 @@ const globalErrorHandler = (err, req, res, next) => {
  * @description Wraps async route handlers to automatically catch errors.
  */
 const asyncHandler = (fn) => (req, res, next) => {
-  Promise.resolve(fn(req, res, next)).catch(next);
+  try {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  } catch (error) {
+    next(error);
+  }
 };
 
 export { notFoundHandler, globalErrorHandler, asyncHandler };

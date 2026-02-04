@@ -8,6 +8,7 @@ import cors from "cors";
 import mongoose from "mongoose";
 import "dotenv/config";
 import { connectDB } from "./config/database.config.js";
+import { initErrorDatabase } from "./config/sequelize.config.js";
 import userRouter from "./routes/user.route.js";
 import accountRouter from "./routes/account.route.js";
 import transactionRouter from "./routes/transaction.route.js";
@@ -18,13 +19,12 @@ import {
 
 import { sanitizeInput } from "./middlewares/validator/sanitize.validator.middleware.js";
 import { requestLogger } from "./middlewares/logger/request.logger.middleware.js";
+import { responseErrorLogger } from "./middlewares/logger/response-error.logger.middleware.js";
 import { logger } from "./middlewares/logger/main.logger.middleware.js";
+import { rateLimiter } from "./middlewares/security/rate-limit.middleware.js";
+import { logError } from "./middlewares/logger/error.logger.middleware.js";
 
 const app = express();
-
-// Security & Request Headers
-app.disable("x-powered-by");
-app.set("trust proxy", 1);
 
 // Middleware Configuration
 
@@ -37,7 +37,10 @@ app.use(
   }),
 );
 
-// 2. CORS Configuration
+// 2. Response error logging (captures non-exception errors)
+app.use(responseErrorLogger());
+
+// 3. CORS Configuration
 app.use(
   cors({
     origin: process.env.CORS_ORIGIN || "*",
@@ -48,11 +51,14 @@ app.use(
   }),
 );
 
-// 3. Parse request bodies
+// 4. Rate limiting
+app.use(rateLimiter);
+
+// 5. Parse request bodies
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(express.json({ limit: "10mb" }));
 
-// 4. Input sanitization
+// 6. Input sanitization
 app.use(sanitizeInput);
 
 // Health Check Endpoint
@@ -68,6 +74,7 @@ app.get("/health", (req, res) => {
 
 // Database Connection
 connectDB();
+initErrorDatabase();
 
 // API Route Definitions
 const apiPrefix = process.env.API_PREFIX || "";
@@ -93,35 +100,6 @@ if (process.env.NODE_ENV !== "production") {
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
 
-// Graceful Shutdown
-const gracefulShutdown = async (signal) => {
-  logger.info(`Received ${signal}. Starting graceful shutdown...`);
-
-  try {
-    await mongoose.connection.close();
-    logger.info("MongoDB connection closed.");
-    process.exit(0);
-  } catch (error) {
-    logger.error("Error during shutdown", { error: error.message });
-    process.exit(1);
-  }
-};
-
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-process.on("SIGINT", () => gracefulShutdown("SIGINT"));
-
-process.on("unhandledRejection", (reason, promise) => {
-  logger.error("Unhandled Rejection", { reason, promise });
-});
-
-process.on("uncaughtException", (error) => {
-  logger.error("Uncaught Exception", {
-    error: error.message,
-    stack: error.stack,
-  });
-  process.exit(1);
-});
-
 // Server Initialization
 const port = process.env.PORT || 3000;
 
@@ -141,15 +119,6 @@ const server = app.listen(port, () => {
 ║  Status:      Running ✓                    ║
 ╚════════════════════════════════════════════╝
   `);
-});
-
-server.on("error", (error) => {
-  if (error.code === "EADDRINUSE") {
-    logger.error(`Port ${port} is already in use`);
-  } else {
-    logger.error("Server error", { error: error.message });
-  }
-  process.exit(1);
 });
 
 export default app;

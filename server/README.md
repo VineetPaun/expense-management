@@ -29,6 +29,8 @@ This is the backend API server for the Expense Management application. It provid
 | Express.js | 5.x     | Web framework         |
 | MongoDB    | -       | NoSQL database        |
 | Mongoose   | 9.x     | MongoDB ODM           |
+| Sequelize  | 6.x     | SQL ORM (error logs)  |
+| SQLite     | -       | Error log storage     |
 | JWT        | 9.x     | Authentication tokens |
 | bcrypt     | 6.x     | Password hashing      |
 | dotenv     | 17.x    | Environment variables |
@@ -63,6 +65,15 @@ MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/expense-tracker
 
 # JWT secret key (use a strong, random string)
 JWT_SECRET=your-super-secret-jwt-key
+
+# Optional: SQL database for error logs
+# If omitted, SQLite is used at server/data/error-logs.sqlite
+ERROR_DB_URL=
+ERROR_DB_STORAGE=
+
+# Optional: rate limiting
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX=100
 ```
 
 ### Environment Variables
@@ -71,6 +82,10 @@ JWT_SECRET=your-super-secret-jwt-key
 | ------------- | -------- | --------------------------------- |
 | `MONGODB_URI` | ✅ Yes   | MongoDB connection string         |
 | `JWT_SECRET`  | ✅ Yes   | Secret key for signing JWT tokens |
+| `ERROR_DB_URL` | ❌ No   | SQL connection string for error logs |
+| `ERROR_DB_STORAGE` | ❌ No | SQLite file path for error logs |
+| `RATE_LIMIT_WINDOW_MS` | ❌ No | Rate limit window in ms |
+| `RATE_LIMIT_MAX` | ❌ No | Max requests per window |
 
 > ⚠️ **Important:** Never commit your `.env` file to version control!
 

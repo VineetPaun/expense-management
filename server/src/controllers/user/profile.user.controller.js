@@ -6,25 +6,29 @@
 import { User } from "../../models/user.model.js";
 import { ApiError } from "../../middlewares/error/api.error.middleware.js";
 
-const getProfile = async (req, res) => {
-  const user = await User.findOne({ user_id: req.user.user_id }).select(
-    "-password_hash -__v",
-  );
+const getProfile = async (req, res, next) => {
+  try {
+    const user = await User.findOne({ user_id: req.user.user_id }).select(
+      "-password_hash -__v",
+    );
 
-  if (!user) {
-    throw ApiError.notFound("User not found");
+    if (!user) {
+      throw ApiError.notFound("User not found");
+    }
+
+    res.json({
+      success: true,
+      message: "User profile fetched successfully",
+      data: {
+        userId: user.user_id,
+        userName: user.user_name,
+        createdAt: user.created_at,
+        updatedAt: user.updated_at,
+      },
+    });
+  } catch (error) {
+    next(error);
   }
-
-  res.json({
-    success: true,
-    message: "User profile fetched successfully",
-    data: {
-      userId: user.user_id,
-      userName: user.user_name,
-      createdAt: user.created_at,
-      updatedAt: user.updated_at,
-    },
-  });
 };
 
 export { getProfile };

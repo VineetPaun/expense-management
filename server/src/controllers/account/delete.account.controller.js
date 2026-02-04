@@ -6,25 +6,29 @@
 import { Account } from "../../models/account.model.js";
 import { ApiError } from "../../middlewares/error/api.error.middleware.js";
 
-const deleteAccount = async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user.user_id;
+const deleteAccount = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.user_id;
 
-  const account = await Account.findOneAndUpdate(
-    { account_id: id, user_id: userId, is_active: true },
-    { is_active: false },
-    { new: true },
-  );
+    const account = await Account.findOneAndUpdate(
+      { account_id: id, user_id: userId, is_active: true },
+      { is_active: false },
+      { new: true },
+    );
 
-  if (!account) {
-    throw ApiError.notFound("Account not found or already deleted");
+    if (!account) {
+      throw ApiError.notFound("Account not found or already deleted");
+    }
+
+    res.json({
+      success: true,
+      message: "Account removed successfully",
+      data: { accountId: id },
+    });
+  } catch (error) {
+    next(error);
   }
-
-  res.json({
-    success: true,
-    message: "Account removed successfully",
-    data: { accountId: id },
-  });
 };
 
 export { deleteAccount };

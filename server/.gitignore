@@ -24,3 +24,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local SQLite error log database
+data/*.sqlite
+data/*.db
